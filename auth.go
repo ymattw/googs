@@ -1,6 +1,7 @@
 package googs
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -55,9 +56,12 @@ func (c *Client) refreshToken() error {
 }
 
 func (c *Client) requestToken(data url.Values) error {
-	err := ogsPost("/oauth2/token/", data, &c.Token)
+	body, err := ogsPost("/oauth2/token/", data)
 	if err != nil {
 		return fmt.Errorf("failed to request token: %w", err)
+	}
+	if err := json.Unmarshal(body, &c.Token); err != nil {
+		return err
 	}
 
 	c.ExpiresAt = time.Now().Add(time.Duration(c.ExpiresIn) * time.Second)
