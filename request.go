@@ -39,6 +39,7 @@ func ogsGet(uri string, accessToken string, ref any) error {
 	if err != nil {
 		return fmt.Errorf("failed to read response of %q: %v", uri, err)
 	}
+	fmt.Printf("%v\n", string(body))
 	if err := json.Unmarshal(body, &ref); err != nil {
 		return err
 	}

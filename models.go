@@ -18,9 +18,9 @@ type Glicko2 struct {
 }
 
 type Me struct {
-	ID       int                `json:"id"`
-	Username string             `json:"username"`
-	About    string             `json:"about"`
-	Ranking  float32            `json:"ranking,omitempty"`
-	Ratings  map[string]Glicko2 `json:"ratings,omitempty"`
+	ID       int     `json:"id"`
+	Username string  `json:"username"`
+	About    string  `json:"about"`
+	Ranking  float32 `json:"ranking,omitempty"`
+	// Ratings  map[string]Glicko2 `json:"ratings,omitempty"`
 }
