@@ -7,7 +7,7 @@ import (
 
 func (c *Client) Me() (*Me, error) {
 	res := Me{}
-	body, err := c.Get("/me")
+	body, err := c.Get("/me", nil)
 	if err != nil {
 		return nil, err
 	}

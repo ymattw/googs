@@ -1,3 +1,13 @@
+/* Package main offers an example usage of the googs package, and it's actually a debug tool.
+*
+* Usage:
+*
+*   go run . -c clientID -u username -p password login
+*   cat client.json
+*   go run . me
+*   go run . get /players/1
+*   go run . /megames ended__isnull=true
+ */
 package main
 
 import (
@@ -5,7 +15,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/ymattw/googs"
 )
@@ -65,18 +77,40 @@ func me() {
 }
 
 func get(args ...string) {
-	if len(args) != 1 {
-		fmt.Printf("Syntax: get <api>\n")
+	if len(args) < 1 {
+		fmt.Printf("Syntax: get <api> [param=value ...]\n")
 		os.Exit(1)
 	}
+	api := args[0]
+	values, err := pairsToURLValues(args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v", err)
+		os.Exit(1)
+	}
+
 	client := loadClient()
-	body, err := client.Get(args[0])
+	body, err := client.Get(api, values)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(1)
 	}
 	formatted, _ := formatJSON(body)
 	fmt.Printf("%s\n", string(formatted))
+}
+
+// pairsToURLValues a list of "key=value" strings into url.Values.
+func pairsToURLValues(pairs []string) (url.Values, error) {
+	values := make(url.Values)
+	for _, pair := range pairs {
+		// Use SplitN to handle cases where value might contain '='
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid parameter format: %s. Expected 'key=value'", pair)
+		}
+		key, value := parts[0], parts[1]
+		values.Add(key, value)
+	}
+	return values, nil
 }
 
 func loadClient() *googs.Client {

@@ -12,12 +12,12 @@ const (
 	baseURL = "https://online-go.com"
 )
 
-func (c *Client) Get(api string) ([]byte, error) {
-	return ogsGet("/api/v1/"+api, c.AccessToken)
+func (c *Client) Get(api string, params url.Values) ([]byte, error) {
+	return ogsGet("/api/v1/"+api, c.AccessToken, params)
 }
 
-func (c *Client) GetUnmarshaled(api string, ref any) error {
-	body, err := c.Get(api)
+func (c *Client) GetUnmarshaled(api string, params url.Values, ref any) error {
+	body, err := c.Get(api, params)
 	if err != nil {
 		return err
 	}
@@ -27,13 +27,14 @@ func (c *Client) GetUnmarshaled(api string, ref any) error {
 	return nil
 }
 
-func ogsGet(uri string, accessToken string) ([]byte, error) {
+func ogsGet(uri string, accessToken string, params url.Values) ([]byte, error) {
 	req, err := http.NewRequest("GET", baseURL+uri, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
+	req.URL.RawQuery = params.Encode()
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
