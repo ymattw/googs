@@ -12,6 +12,7 @@ Usage:
 	go run . -c clientID -u username -p "$PASS" login
 	cat client.json
 	go run . me
+	go run . overview
 	go run . myactivegames
 	go run . getraw /players/1
 	go run . getraw /megames ended__isnull=true
@@ -56,6 +57,8 @@ func main() {
 		login()
 	case "me":
 		me()
+	case "overview":
+		overview()
 	case "myactivegames":
 		myactivegames()
 	case "getraw":
@@ -84,6 +87,24 @@ func me() {
 	client := loadClient()
 	me, err := client.Me()
 	fmt.Printf("%#v %v\n", me, err)
+}
+
+func overview() {
+	client := loadClient()
+	v, err := client.Overview()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Total %d active games\n", len(v.ActiveGames))
+	for i, g := range v.ActiveGames {
+		whosTurn := "white"
+		if g.BlacksTurn() {
+			whosTurn = "black"
+		}
+		fmt.Printf("%d %s (B) vs %s (W), %d moves, %s to play\n", i+1, g.Players["black"].Username, g.Players["white"].Username, len(g.Moves), whosTurn)
+	}
 }
 
 func myactivegames() {

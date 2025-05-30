@@ -13,6 +13,14 @@ func (c *Client) Me() (*Me, error) {
 	return &res, nil
 }
 
+func (c *Client) Overview() (*Overview, error) {
+	res := Overview{}
+	if err := c.Get("/ui/overview", nil, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 func (c *Client) MyActiveGames() (*MyGames, error) {
 	values := url.Values{}
 	// Ref: https://github.com/search?q=repo%3Aonline-go%2Fonline-go.com+ended__isnull&type=code

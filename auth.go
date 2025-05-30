@@ -10,7 +10,7 @@ import (
 type Token struct {
 	AccessToken  string    `json:"access_token"`
 	TokenType    string    `json:"-"` // Ignore, always "Bearer"
-	ExpiresIn    int       `json:"expires_in,omitempty"`
+	ExpiresIn    int64     `json:"expires_in,omitempty"`
 	RefreshToken string    `json:"refresh_token"`
 	ExpiresAt    time.Time `json:"expires_at,omitempty"`
 }

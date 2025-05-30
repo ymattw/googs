@@ -2,6 +2,7 @@ package googs
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -9,28 +10,29 @@ type Me struct {
 	ID       int64
 	Username string
 	About    string
-	Ranking  float32 `json:",omitempty"`
+	Ranking  float32
 	Ratings  OGSRating
 }
 
 type Player struct {
-	ID           int
+	ID           int64
 	Username     string
-	Country      string  `json:",omitempty"`
-	Professional bool    `json:",omitempty"`
-	Ranking      float32 `json:",omitempty"`
+	Country      string
+	Professional bool
+	Ranking      float32
 	Ratings      OGSRating
-	UIClass      string `json:"ui_class,omitempty"`
+	UIClass      string `json:"ui_class"`
 }
 
 type Glicko2 struct {
 	Deviation   float32
-	GamesPlayed int64 `json:"games_played,omitempty"`
+	GamesPlayed int64 `json:"games_played"`
 	Rating      float32
 	Volatility  float32
 }
 
-// Rating is customized struct to fit the mixed format from OGS APIs
+// OGSRating contains a `"version": 5` field besides the string keyed ratings,
+// so needs a customized decoder.
 type OGSRating struct {
 	Version int
 
@@ -40,15 +42,14 @@ type OGSRating struct {
 	Ratings map[string]Glicko2 `json:"-"`
 }
 
-// UnmarshalJSON customizes how Rating is unmarshaled from JSON.
 func (r *OGSRating) UnmarshalJSON(data []byte) error {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(data, &m); err != nil {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
 	r.Ratings = make(map[string]Glicko2)
-	for key, value := range m {
+	for key, value := range raw {
 		if key == "version" {
 			if err := json.Unmarshal(value, &r.Version); err != nil {
 				return err
@@ -79,10 +80,81 @@ type Game struct {
 	ranked    bool
 	Handicap  int
 	Komi      string
-	Outcome   string `json:",omitempty"`
+	Outcome   string
 	Annulled  bool
 	Started   time.Time
 	BlackLost bool `json:"black_lost"`
 	WhiteLost bool `json:"white_lost"`
 	Players   map[string]Player
+}
+
+type Overview struct {
+	ActiveGames []ActiveGame `json:"active_games"`
+}
+
+// Only most important fields for now
+type Clock struct {
+	CurrentPlayerID int64 `json:"current_player"`
+}
+
+// Move is an array of [x, y, TimeDelta] but in different types, so needs
+// a customized decoder.
+type Move struct {
+	X         int
+	Y         int
+	TimeDelta float32
+}
+
+func (m *Move) UnmarshalJSON(data []byte) error {
+	var raw []json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if len(raw) < 3 {
+		return fmt.Errorf("expected at least 3 elements in move array, got %d", len(raw))
+	}
+
+	var x int
+	if err := json.Unmarshal(raw[0], &x); err != nil {
+		return fmt.Errorf("error unmarshaling move.X: %w", err)
+	}
+	var y int
+	if err := json.Unmarshal(raw[1], &y); err != nil {
+		return fmt.Errorf("error unmarshaling move.Y: %w", err)
+	}
+
+	var timeDelta float32
+	if err := json.Unmarshal(raw[2], &timeDelta); err != nil {
+		return fmt.Errorf("error unmarshaling move.TimeDelta: %w", err)
+	}
+
+	m.X = x
+	m.Y = y
+	m.TimeDelta = timeDelta
+	return nil
+}
+
+type ActiveGameJSON struct {
+	Players   map[string]Player // keys are "black", "white"
+	Width     int
+	Height    int
+	Rules     string
+	ranked    bool
+	Handicap  int
+	Komi      float32
+	Phase     string
+	StartTime int64 `json:"start_time"`
+	Moves     []Move
+
+	Clock Clock
+}
+
+type ActiveGame struct {
+	ID             int64
+	Name           string
+	ActiveGameJSON `json:"json"` // Embedded
+}
+
+func (g *ActiveGame) BlacksTurn() bool {
+	return g.Clock.CurrentPlayerID == g.Players["black"].ID
 }
