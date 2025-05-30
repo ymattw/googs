@@ -1,4 +1,4 @@
-cli:
+build:
 	go build -o cli ./example/main.go
 
 mod:

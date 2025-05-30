@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"time"
 	"net/url"
 	"os"
 	"strings"
@@ -85,7 +86,7 @@ func login() {
 
 func me() {
 	client := loadClient()
-	me, err := client.Me()
+	me, err := client.AboutMe()
 	fmt.Printf("%#v %v\n", me, err)
 }
 
@@ -157,7 +158,7 @@ func loadClient() *googs.Client {
 		os.Exit(1)
 	}
 
-	refreshed, err := client.MaybeRefresh()
+	refreshed, err := client.MaybeRefresh(time.Hour * 24 * 7)
 	if err != nil {
 		fmt.Printf("Refresh failed: %v, need to relogin\n", err)
 		os.Exit(1)

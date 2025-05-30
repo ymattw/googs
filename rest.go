@@ -5,7 +5,7 @@ import (
 	"net/url"
 )
 
-func (c *Client) Me() (*Me, error) {
+func (c *Client) AboutMe() (*Me, error) {
 	res := Me{}
 	if err := c.Get("/me", nil, &res); err != nil {
 		return nil, err

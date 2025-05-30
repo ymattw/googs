@@ -19,6 +19,10 @@ type Client struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret,omitempty"`
 	Token               // Embedded
+
+	// Not to persist
+	Username string `json:"-"`
+	UserID   int64  `json:"-"`
 }
 
 func NewClient(clientID, clientSecret string) *Client {
@@ -35,8 +39,16 @@ func (c *Client) Login(username, password string) error {
 	data.Set("client_secret", c.ClientSecret)
 	data.Set("username", username)
 	data.Set("password", password)
+	return c.requestToken(data)
+}
 
-	c.requestToken(data)
+func (c *Client) Identify() error {
+	me, err := c.AboutMe()
+	if err != nil {
+		return err
+	}
+	c.Username = me.Username
+	c.UserID = me.ID
 	return nil
 }
 
@@ -50,9 +62,7 @@ func (c *Client) refreshToken() error {
 	data.Set("refresh_token", c.RefreshToken)
 	data.Set("client_id", c.ClientID)
 	data.Set("client_secret", c.ClientSecret)
-
-	c.requestToken(data)
-	return nil
+	return c.requestToken(data)
 }
 
 func (c *Client) requestToken(data url.Values) error {
@@ -66,15 +76,18 @@ func (c *Client) requestToken(data url.Values) error {
 
 	c.ExpiresAt = time.Now().Add(time.Duration(c.ExpiresIn) * time.Second)
 	c.ExpiresIn = 0 // Unset to omit when persisting to file
+
+	if err := c.Identify(); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (c *Client) MaybeRefresh() (bool, error) {
-	if c.AccessToken != "" && time.Now().Before(c.ExpiresAt) {
-		return false, nil
+func (c *Client) MaybeRefresh(deadline time.Duration) (bool, error) {
+	expiring := time.Now().Add(deadline).After(c.ExpiresAt)
+	if expiring || c.Identify() != nil {
+		err := c.refreshToken()
+		return err == nil, err
 	}
-	if err := c.refreshToken(); err != nil {
-		return false, err
-	}
-	return true, nil
+	return false, nil
 }
