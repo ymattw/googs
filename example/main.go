@@ -10,7 +10,7 @@ Usage:
 
 	read -s PASS  # Avoid password being logged in shell history
 	go run . -c clientID -u username -p "$PASS" login
-	cat client.json
+	cat secret.json
 	go run . me
 	go run . overview
 	go run . myactivegames
@@ -36,7 +36,7 @@ var (
 	clientID = flag.String("c", "", "client ID")
 	username = flag.String("u", "", "username")
 	password = flag.String("p", "", "password")
-	file     = flag.String("f", "client.json", "file to write client info to and load from")
+	file     = flag.String("f", "secret.json", "file to write client info to and load from")
 )
 
 func usage() {

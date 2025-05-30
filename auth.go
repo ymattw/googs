@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"time"
+
+	socketio "github.com/maldikhan/go.socket.io/socket.io/v5/client"
 )
 
 type Token struct {
@@ -15,14 +17,23 @@ type Token struct {
 	ExpiresAt    time.Time `json:"expires_at,omitempty"`
 }
 
+type Auth struct {
+	ChatAuth         string `json:"chat_auth"`
+	NotificationAuth string `json:"notification_auth"`
+}
+
 type Client struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret,omitempty"`
 	Token               // Embedded
+	Auth                // Embedded
 
 	// Not to persist
 	Username string `json:"-"`
 	UserID   int64  `json:"-"`
+
+	// Internal
+	socket *socketio.Client
 }
 
 func NewClient(clientID, clientSecret string) *Client {
@@ -39,7 +50,7 @@ func (c *Client) Login(username, password string) error {
 	data.Set("client_secret", c.ClientSecret)
 	data.Set("username", username)
 	data.Set("password", password)
-	return c.requestToken(data)
+	return c.authenticate(data)
 }
 
 func (c *Client) Identify() error {
@@ -62,10 +73,17 @@ func (c *Client) refreshToken() error {
 	data.Set("refresh_token", c.RefreshToken)
 	data.Set("client_id", c.ClientID)
 	data.Set("client_secret", c.ClientSecret)
-	return c.requestToken(data)
+	if err := c.authenticate(data); err != nil {
+		return err
+	}
+	if err := c.Identify(); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (c *Client) requestToken(data url.Values) error {
+func (c *Client) authenticate(data url.Values) error {
+	// Request tokens
 	body, err := ogsPost("/oauth2/token/", data)
 	if err != nil {
 		return fmt.Errorf("failed to request token: %w", err)
@@ -77,7 +95,13 @@ func (c *Client) requestToken(data url.Values) error {
 	c.ExpiresAt = time.Now().Add(time.Duration(c.ExpiresIn) * time.Second)
 	c.ExpiresIn = 0 // Unset to omit when persisting to file
 
-	if err := c.Identify(); err != nil {
+	// Request auth config
+	if err := c.Get("/ui/config/", nil, &c.Auth); err != nil {
+		return fmt.Errorf("failed to request auth config: %w", err)
+	}
+
+	// Initialize socket.io client
+	if err := c.initSocket(); err != nil {
 		return err
 	}
 	return nil

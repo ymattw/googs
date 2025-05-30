@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+
+	socketio "github.com/maldikhan/go.socket.io/socket.io/v5/client"
 )
 
 const (
-	baseURL = "https://online-go.com"
+	restBaseURL = "https://online-go.com"
+	realtimeURL = "wss://online-go.com/socket.io/?EIO=3&transport=websocket"
 )
 
 func (c *Client) Get(api string, params url.Values, ptr any) error {
@@ -33,7 +36,7 @@ func (c *Client) GetRaw(api string, params url.Values) ([]byte, error) {
 }
 
 func ogsGet(uri string, accessToken string, params url.Values) ([]byte, error) {
-	url := baseURL + uri
+	url := restBaseURL + uri
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -61,7 +64,7 @@ func ogsGet(uri string, accessToken string, params url.Values) ([]byte, error) {
 }
 
 func ogsPost(uri string, data url.Values) ([]byte, error) {
-	resp, err := http.PostForm(baseURL+uri, data)
+	resp, err := http.PostForm(restBaseURL+uri, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to post %q: %v", uri, err)
 	}
@@ -76,4 +79,13 @@ func ogsPost(uri string, data url.Values) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read response of %q: %v", uri, err)
 	}
 	return body, nil
+}
+
+func (c *Client) initSocket() error {
+	conn, err := socketio.NewClient(socketio.WithRawURL(realtimeURL))
+	if err != nil {
+		return err
+	}
+	c.socket = conn
+	return nil
 }
