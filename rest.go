@@ -2,28 +2,23 @@
 package googs
 
 import (
-	"encoding/json"
+	"net/url"
 )
 
 func (c *Client) Me() (*Me, error) {
 	res := Me{}
-	body, err := c.Get("/me", nil)
-	if err != nil {
+	if err := c.Get("/me", nil, &res); err != nil {
 		return nil, err
 	}
+	return &res, nil
+}
 
-	// Remove malformed `"version": 5` field
-	// TODO: report to OGS if this is a bug
-	var data map[string]any
-	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, err
-	}
-	if ratings, ok := data["ratings"].(map[string]any); ok {
-		delete(ratings, "version")
-	}
-	cleanBody, _ := json.Marshal(data)
-
-	if err := json.Unmarshal(cleanBody, &res); err != nil {
+func (c *Client) MyActiveGames() (*MyGames, error) {
+	values := url.Values{}
+	// Ref: https://github.com/search?q=repo%3Aonline-go%2Fonline-go.com+ended__isnull&type=code
+	values.Set("ended__isnull", "true")
+	res := MyGames{}
+	if err := c.Get("/megames", values, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil

@@ -1,13 +1,21 @@
-/* Package main offers an example usage of the googs package, and it's actually a debug tool.
-*
-* Usage:
-*
-*   go run . -c clientID -u username -p password login
-*   cat client.json
-*   go run . me
-*   go run . get /players/1
-*   go run . /megames ended__isnull=true
- */
+/*
+Package main offers an example usage of the googs package, and it's actually
+a debug tool.
+
+Requires an OGS application (https://online-go.com/oauth2/applications/, choose
+Client Type: "Public", grant type "Resource owner password-based"). Keep note
+of the client id, client secret is not needed.
+
+Usage:
+
+	read -s PASS  # Avoid password being logged in shell history
+	go run . -c clientID -u username -p "$PASS" login
+	cat client.json
+	go run . me
+	go run . myactivegames
+	go run . getraw /players/1
+	go run . getraw /megames ended__isnull=true
+*/
 package main
 
 import (
@@ -48,8 +56,10 @@ func main() {
 		login()
 	case "me":
 		me()
-	case "get":
-		get(args...)
+	case "myactivegames":
+		myactivegames()
+	case "getraw":
+		getraw(args...)
 	default:
 		usage()
 	}
@@ -73,25 +83,31 @@ func login() {
 func me() {
 	client := loadClient()
 	me, err := client.Me()
-	fmt.Printf("%v %v\n", me, err)
+	fmt.Printf("%#v %v\n", me, err)
 }
 
-func get(args ...string) {
+func myactivegames() {
+	client := loadClient()
+	games, err := client.MyActiveGames()
+	fmt.Printf("%#v %v\n", games, err)
+}
+
+func getraw(args ...string) {
 	if len(args) < 1 {
-		fmt.Printf("Syntax: get <api> [param=value ...]\n")
+		fmt.Printf("Syntax: getraw <api> [param=value ...]\n")
 		os.Exit(1)
 	}
 	api := args[0]
 	values, err := pairsToURLValues(args[1:])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
 	client := loadClient()
-	body, err := client.Get(api, values)
+	body, err := client.GetRaw(api, values)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 	formatted, _ := formatJSON(body)

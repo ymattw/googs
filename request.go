@@ -6,29 +6,35 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 )
 
 const (
 	baseURL = "https://online-go.com"
 )
 
-func (c *Client) Get(api string, params url.Values) ([]byte, error) {
-	return ogsGet("/api/v1/"+api, c.AccessToken, params)
-}
+func (c *Client) Get(api string, params url.Values, ptr any) error {
+	if reflect.ValueOf(ptr).Kind() != reflect.Ptr {
+		return fmt.Errorf("ptr argument must be a pointer, got %T", ptr)
+	}
 
-func (c *Client) GetUnmarshaled(api string, params url.Values, ref any) error {
-	body, err := c.Get(api, params)
+	body, err := c.GetRaw(api, params)
 	if err != nil {
 		return err
 	}
-	if err := json.Unmarshal(body, &ref); err != nil {
+	if err := json.Unmarshal(body, ptr); err != nil {
 		return err
 	}
 	return nil
 }
 
+func (c *Client) GetRaw(api string, params url.Values) ([]byte, error) {
+	return ogsGet("/api/v1"+api, c.AccessToken, params)
+}
+
 func ogsGet(uri string, accessToken string, params url.Values) ([]byte, error) {
-	req, err := http.NewRequest("GET", baseURL+uri, nil)
+	url := baseURL + uri
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -44,12 +50,12 @@ func ogsGet(uri string, accessToken string, params url.Values) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server responded %q for %q", resp.Status, uri)
+		return nil, fmt.Errorf("%s -> %s", url, resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response of %q: %v", uri, err)
+		return nil, fmt.Errorf("%s -> %w", url, err)
 	}
 	return body, nil
 }
