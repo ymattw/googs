@@ -1,7 +1,6 @@
 package googs
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -51,11 +50,6 @@ func ogsGet(uri string, accessToken string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response of %q: %v", uri, err)
 	}
-
-	// Debug
-	formatted, _ := formatJSON(body)
-	fmt.Printf("%v\n", string(formatted))
-
 	return body, nil
 }
 
@@ -75,14 +69,4 @@ func ogsPost(uri string, data url.Values) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read response of %q: %v", uri, err)
 	}
 	return body, nil
-}
-
-func formatJSON(body []byte) ([]byte, error) {
-	var out bytes.Buffer
-	err := json.Indent(&out, []byte(body), "", "  ")
-	if err != nil {
-		return nil, err
-	}
-
-	return out.Bytes(), nil
 }
