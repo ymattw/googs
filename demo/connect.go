@@ -28,10 +28,6 @@ func connect(args ...string) {
 	if err != nil {
 		log.Fatalf("Failed to get game information %v", err)
 	}
-	// TODO: research how is the Game struct different for Rengo games
-	if game.Rengo {
-		log.Fatal("Rengo game is not supported yet")
-	}
 
 	// Buffered channels for game events and game moves
 	chGame := make(chan *googs.Game, 10)

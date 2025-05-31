@@ -222,6 +222,7 @@ type Clock struct {
 	Expiration      Timestamp
 	GameID          int64     `json:"game_id"`
 	LastMove        Timestamp `json:"last_move"`
+	PausedSince     int64     `json:"paused_since"`
 	Title           string
 	WhitePlayerID   int64      `json:"white_player_id"`
 	WhiteTime       PlayerTime `json:"white_time"`
@@ -229,10 +230,30 @@ type Clock struct {
 }
 
 type PlayerTime struct {
+	// Only for Rengo games
+	Value Timestamp
+
+	// Only for non Rengo games
 	PeriodTime     int64   `json:"period_time"`
 	PeriodTimeLeft float64 `json:"period_time_left"`
 	Periods        int
 	ThinkingTime   float64 `json:"thinking_time"`
+}
+
+// UnmarshalJSON is a customized JSON decoder for properly handling the
+// different type of clock details in the Clock struct.
+func (t *PlayerTime) UnmarshalJSON(data []byte) error {
+	if json.Unmarshal(data, &t.Value) == nil {
+		return nil
+	}
+
+	type alias PlayerTime // Avoid recursive decoding
+	var pt alias
+	if err := json.Unmarshal(data, &pt); err != nil {
+		return err
+	}
+	*t = PlayerTime(pt)
+	return nil
 }
 
 type Players struct {
