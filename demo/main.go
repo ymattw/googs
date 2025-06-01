@@ -46,6 +46,8 @@ func main() {
 		connect(args...)
 	case "rest":
 		rest(args...)
+	case "board":
+		board()
 	default:
 		log.Fatalf("Invalid parameters, %s", usage)
 	}
