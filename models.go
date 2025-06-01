@@ -3,6 +3,7 @@ package googs
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -10,7 +11,7 @@ type Me struct {
 	ID       int64
 	Username string
 	About    string
-	Ranking  float32
+	Ranking  float64
 	Ratings  OGSRating
 }
 
@@ -19,16 +20,17 @@ type Player struct {
 	Username     string
 	Country      string
 	Professional bool
-	Ranking      float32
+	Ranking      float64
+	Rank         float64 // Some API uses "Rank"
 	Ratings      OGSRating
 	UIClass      string `json:"ui_class"`
 }
 
 type Glicko2 struct {
-	Deviation   float32
+	Deviation   float64
 	GamesPlayed int64 `json:"games_played"`
-	Rating      float32
-	Volatility  float32
+	Rating      float64
+	Volatility  float64
 }
 
 // OGSRating contains a `"version": 5` field besides the string keyed ratings,
@@ -65,12 +67,30 @@ func (r *OGSRating) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MyGame is the struct decoded from /me/games
 type MyGames struct {
 	Count   int
-	Results []Game
+	Results []MyGame
 }
 
-type Game struct {
+type Timestamp struct {
+	time.Time
+}
+
+func (t *Timestamp) UnmarshalJSON(b []byte) error {
+	ts, err := strconv.ParseInt(string(b), 10, 64)
+	if err != nil {
+		return fmt.Errorf("Timestamp.UnmarshalJSON: expected a numeric Unix timestamp, but got %q: %w", string(b), err)
+	}
+	if ts > 1_000_000_000_000 { //  Assume miliseconds
+		t.Time = time.UnixMilli(ts)
+	} else {
+		t.Time = time.Unix(ts, 0)
+	}
+	return nil
+}
+
+type MyGame struct {
 	ID        int64
 	Name      string
 	Creator   int64
@@ -82,19 +102,95 @@ type Game struct {
 	Komi      string
 	Outcome   string
 	Annulled  bool
-	Started   time.Time
+	Started   Timestamp
 	BlackLost bool `json:"black_lost"`
 	WhiteLost bool `json:"white_lost"`
 	Players   map[string]Player
 }
 
-type Overview struct {
-	ActiveGames []ActiveGame `json:"active_games"`
+type Game struct {
+	AgaHandicapScoring            bool   `json:"aga_handicap_scoring"`
+	AllowSelfCapture              bool   `json:"allow_self_capture"`
+	AllowSuperko                  bool   `json:"allow_superko"`
+	AutomaticStoneRemoval         bool   `json:"automatic_stone_removal"`
+	BlackPlayerID                 int64  `json:"black_player_id"`
+	Clock                         Clock  `json:"clock"`
+	GameID                        int64  `json:"game_id"`
+	GameName                      string `json:"game_name"`
+	GroupIDs                      []any  `json:"group_ids"` // Can be []int or []string, depending on content
+	Handicap                      int    `json:"handicap"`
+	HandicapRankDifference        int    `json:"handicap_rank_difference"`
+	Height                        int
+	InitialPlayer                 string `json:"initial_player"`
+	Komi                          float64
+	Latencies                     map[string]int64 // playerID => latencies
+	Moves                         []Move
+	OpponentPlaysFirstAfterResume bool `json:"opponent_plays_first_after_resume"`
+	Phase                         string
+	PlayerPool                    map[string]Player `json:"player_pool"` // Keys are player IDs (string)
+	Players                       Players           `json:"players"`
+	Private                       bool
+	Ranked                        bool
+	Rengo                         bool
+	Rules                         string
+	ScoreHandicap                 bool        `json:"score_handicap"`
+	ScorePasses                   bool        `json:"score_passes"`
+	ScorePrisoners                bool        `json:"score_prisoners"`
+	ScoreStones                   bool        `json:"score_stones"`
+	ScoreTerritory                bool        `json:"score_territory"`
+	ScoreTerritoryInSeki          bool        `json:"score_territory_in_seki"`
+	StartTime                     Timestamp   `json:"start_time"`
+	StateVersion                  int         `json:"state_version"`
+	StrictSekiMode                bool        `json:"strict_seki_mode"`
+	SuperkoAlgorithm              string      `json:"superko_algorithm"`
+	TimeControl                   TimeControl `json:"time_control"`
+	WhiteMustPassLast             bool        `json:"white_must_pass_last"`
+	WhitePlayerID                 int64       `json:"white_player_id"`
+	Width                         int
 }
 
-// Only most important fields for now
+// Clock struct
 type Clock struct {
-	CurrentPlayerID int64 `json:"current_player"`
+	BlackPlayerID   int64      `json:"black_player_id"`
+	BlackTime       PlayerTime `json:"black_time"`
+	CurrentPlayerID int64      `json:"current_player"`
+	Expiration      Timestamp
+	GameID          int64     `json:"game_id"`
+	LastMove        Timestamp `json:"last_move"`
+	Title           string
+	WhitePlayerID   int64      `json:"white_player_id"`
+	WhiteTime       PlayerTime `json:"white_time"`
+}
+
+// PlayerTime struct
+type PlayerTime struct {
+	PeriodTime     int64   `json:"period_time"`
+	PeriodTimeLeft float64 `json:"period_time_left"`
+	Periods        int
+	ThinkingTime   int `json:"thinking_time"`
+}
+
+// Players struct
+type Players struct {
+	Black Player
+	White Player
+}
+
+// TimeControl struct
+type TimeControl struct {
+	MainTime        int   `json:"main_time"`
+	PauseOnWeekends bool  `json:"pause_on_weekends"`
+	PeriodTime      int64 `json:"period_time"`
+	Periods         int
+	PeriodsMax      int `json:"periods_max"`
+	PeriodsMin      int `json:"periods_min"`
+	Speed           string
+	System          string
+	TimeControl     string `json:"time_control"`
+}
+
+type Overview struct {
+	ActiveGames []ActiveGame `json:"active_games"`
 }
 
 // Move is an array of [x, y, TimeDelta] but in different types, so needs
@@ -102,7 +198,7 @@ type Clock struct {
 type Move struct {
 	X         int
 	Y         int
-	TimeDelta float32
+	TimeDelta float64
 }
 
 func (m *Move) UnmarshalJSON(data []byte) error {
@@ -123,7 +219,7 @@ func (m *Move) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("error unmarshaling move.Y: %w", err)
 	}
 
-	var timeDelta float32
+	var timeDelta float64
 	if err := json.Unmarshal(raw[2], &timeDelta); err != nil {
 		return fmt.Errorf("error unmarshaling move.TimeDelta: %w", err)
 	}
@@ -134,27 +230,22 @@ func (m *Move) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ActiveGameJSON struct {
-	Players   map[string]Player // keys are "black", "white"
-	Width     int
-	Height    int
-	Rules     string
-	ranked    bool
-	Handicap  int
-	Komi      float32
-	Phase     string
-	StartTime int64 `json:"start_time"`
-	Moves     []Move
-
-	Clock Clock
-}
-
 type ActiveGame struct {
-	ID             int64
-	Name           string
-	ActiveGameJSON `json:"json"` // Embedded
+	ID   int64
+	Name string
+	Game Game `json:"json"` // Embedded
 }
 
-func (g *ActiveGame) BlacksTurn() bool {
-	return g.Clock.CurrentPlayerID == g.Players["black"].ID
+func (a *ActiveGame) BlacksTurn() bool {
+	return a.Game.Clock.CurrentPlayerID == a.Game.Players.Black.ID
+}
+
+func (a *ActiveGame) WhitesTurn() bool {
+	return a.Game.Clock.CurrentPlayerID == a.Game.Players.White.ID
+}
+
+type GameMove struct {
+	GameID     int64 `json:"game_id"`
+	Move       Move
+	MoveNumber int `json:"move_number"`
 }

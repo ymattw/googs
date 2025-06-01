@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"time"
 
-	socketio "github.com/maldikhan/go.socket.io/socket.io/v5/client"
+	socketio "github.com/graarh/golang-socketio"
 )
 
 type Token struct {
@@ -50,7 +51,58 @@ func (c *Client) Login(username, password string) error {
 	data.Set("client_secret", c.ClientSecret)
 	data.Set("username", username)
 	data.Set("password", password)
-	return c.authenticate(data)
+	if err := c.authenticate(data); err != nil {
+		return err
+	}
+
+	if err := c.Identify(); err != nil {
+		return err
+	}
+
+	if err := c.connect(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func LoadClient(secretFile string) (*Client, error) {
+	data, err := os.ReadFile(secretFile)
+	if err != nil {
+		return nil, err
+	}
+	var c Client
+	if err := json.Unmarshal(data, &c); err != nil {
+		return nil, err
+	}
+
+	// OGS access token is valid for 30 days, refresh if it's expiring in
+	// 7 days.
+	refreshed, err := c.MaybeRefresh(time.Hour * 24 * 7)
+	if err != nil {
+		return nil, err
+	}
+	if refreshed {
+		if err := c.Save(secretFile); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := c.Identify(); err != nil {
+		return nil, err
+	}
+
+	if err := c.connect(); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (c *Client) Save(secretFile string) error {
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(secretFile, data, 0600)
 }
 
 func (c *Client) Identify() error {
@@ -76,9 +128,6 @@ func (c *Client) refreshToken() error {
 	if err := c.authenticate(data); err != nil {
 		return err
 	}
-	if err := c.Identify(); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -100,16 +149,13 @@ func (c *Client) authenticate(data url.Values) error {
 		return fmt.Errorf("failed to request auth config: %w", err)
 	}
 
-	// Initialize socket.io client
-	if err := c.initSocket(); err != nil {
-		return err
-	}
 	return nil
 }
 
 func (c *Client) MaybeRefresh(deadline time.Duration) (bool, error) {
 	expiring := time.Now().Add(deadline).After(c.ExpiresAt)
 	if expiring || c.Identify() != nil {
+		// TODO: Only fresh on 401 error
 		err := c.refreshToken()
 		return err == nil, err
 	}

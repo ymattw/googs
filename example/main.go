@@ -24,9 +24,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"time"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/ymattw/googs"
@@ -64,6 +64,8 @@ func main() {
 		myactivegames()
 	case "getraw":
 		getraw(args...)
+	case "socket":
+		socket(args...)
 	default:
 		usage()
 	}
@@ -99,12 +101,12 @@ func overview() {
 	}
 
 	fmt.Printf("Total %d active games\n", len(v.ActiveGames))
-	for i, g := range v.ActiveGames {
-		whosTurn := "white"
-		if g.BlacksTurn() {
-			whosTurn = "black"
+	for i, a := range v.ActiveGames {
+		whosTurn := "opponent's turn"
+		if a.Game.Clock.CurrentPlayerID == client.UserID {
+			whosTurn = "my turn"
 		}
-		fmt.Printf("%d %s (B) vs %s (W), %d moves, %s to play\n", i+1, g.Players["black"].Username, g.Players["white"].Username, len(g.Moves), whosTurn)
+		fmt.Printf("%d %s %s (B) vs %s (W), %d moves, %s\n", i+1, a.Name, a.Game.Players.Black.Username, a.Game.Players.White.Username, len(a.Game.Moves), whosTurn)
 	}
 }
 
@@ -157,18 +159,6 @@ func loadClient() *googs.Client {
 		fmt.Printf("failed to load client from file: %v\n", err)
 		os.Exit(1)
 	}
-
-	refreshed, err := client.MaybeRefresh(time.Hour * 24 * 7)
-	if err != nil {
-		fmt.Printf("Refresh failed: %v, need to relogin\n", err)
-		os.Exit(1)
-	}
-
-	if refreshed {
-		client.Save(*file)
-		fmt.Printf("Credentials refreshed and wrote to %s\n", *file)
-	}
-
 	return client
 }
 
@@ -180,4 +170,59 @@ func formatJSON(body []byte) ([]byte, error) {
 	}
 
 	return out.Bytes(), nil
+}
+
+func formatObject(obj any) string {
+	var out bytes.Buffer
+	data, _ := json.Marshal(obj)
+	if json.Indent(&out, []byte(data), "", "  ") != nil {
+		return ""
+	}
+	return string(out.Bytes())
+}
+
+func socket(args ...string) {
+	if len(args) != 1 {
+		fmt.Printf("Syntax: socket <gameID>\n")
+		os.Exit(1)
+	}
+	gameID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		fmt.Printf("Invalid gameID %s\n", args[0])
+		os.Exit(1)
+	}
+
+	client := loadClient()
+
+	// client.Watch("connect", func(s socketio.Conn) {
+	// 	fmt.Println("Connected to OGS Socket.IO server.")
+	// })
+
+	// client.Watch("disconnect", func([]byte) {
+	// 	fmt.Println("Disconnected from OGS Socket.IO server.")
+	// })
+
+	// client.Watch("error", func([]byte) {
+	// 	fmt.Printf("Socket.IO error: %v\n", err)
+	// })
+
+	// Example of handling a specific event (e.g., game_data updates)
+	// client.Watch("game_data", func(databyte) {
+	//     fmt.Printf("Received game data: %s\n", string(data))
+	//     // Parse and process game data here
+	// })
+
+	err = client.NotificationConnect()
+	fmt.Printf("NotificationConnect got err: %v\n", err)
+
+	client.GameConnect(gameID, func(g *googs.Game) {
+		fmt.Printf("GameConnect got response:\n%s\n", formatObject(g))
+	})
+
+	client.OnMove(gameID, func(m *googs.GameMove) {
+		fmt.Printf("OnMove got response:\n%s\n", formatObject(m))
+	})
+
+	// Keep the main goroutine alive to process events
+	select {}
 }
