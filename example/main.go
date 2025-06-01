@@ -13,10 +13,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ymattw/googs"
 )
@@ -34,12 +34,11 @@ func usage() {
 	read -s PASS  # Avoid password being logged in shell history
 	go run . -c clientID -u username -p "$PASS" login
 	cat secret.json
-	go run . me
 	go run . overview
 	go run . getraw /players/1
-	go run . getraw /me/games                     # all my games
-	go run . getraw /me/games ended__isnull=true  # my active games
-	go run . realtime                             # try realtime APIs
+	go run . getraw /me/games       # all my games
+	go run . watch gameID           # watch a game
+	go run . playmove gameID coord  # submit a move (coord is "A1" format)
 	` + "\n")
 	os.Exit(1)
 }
@@ -56,14 +55,14 @@ func main() {
 	switch cmd {
 	case "login":
 		login()
-	case "me":
-		me()
 	case "overview":
 		overview()
 	case "getraw":
 		getraw(args...)
-	case "realtime":
-		realtime(args...)
+	case "watch":
+		watch(args...)
+	case "playmove":
+		playMove(args...)
 	default:
 		usage()
 	}
@@ -82,12 +81,6 @@ func login() {
 	}
 	client.Save(*file)
 	fmt.Printf("Credentials wrote to %s\n", *file)
-}
-
-func me() {
-	client := loadClient()
-	me, err := client.AboutMe()
-	fmt.Printf("%#v %v\n", me, err)
 }
 
 func overview() {
@@ -109,40 +102,20 @@ func overview() {
 }
 
 func getraw(args ...string) {
-	if len(args) < 1 {
-		fmt.Printf("Syntax: getraw <api> [param=value ...]\n")
+	if len(args) != 1 {
+		fmt.Printf("Syntax: getraw <api>\n")
 		os.Exit(1)
 	}
 	api := args[0]
-	values, err := pairsToURLValues(args[1:])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
 
 	client := loadClient()
-	body, err := client.GetRaw(api, values)
+	body, err := client.GetRaw(api, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 	formatted, _ := formatJSON(body)
 	fmt.Printf("%s\n", string(formatted))
-}
-
-// pairsToURLValues a list of "key=value" strings into url.Values.
-func pairsToURLValues(pairs []string) (url.Values, error) {
-	values := make(url.Values)
-	for _, pair := range pairs {
-		// Use SplitN to handle cases where value might contain '='
-		parts := strings.SplitN(pair, "=", 2)
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid parameter format: %s. Expected 'key=value'", pair)
-		}
-		key, value := parts[0], parts[1]
-		values.Add(key, value)
-	}
-	return values, nil
 }
 
 func loadClient() *googs.Client {
@@ -173,9 +146,9 @@ func formatObject(obj any) string {
 	return out.String()
 }
 
-func realtime(args ...string) {
+func watch(args ...string) {
 	if len(args) != 1 {
-		fmt.Printf("Syntax: realtime <gameID>\n")
+		fmt.Printf("Syntax: watch <gameID>\n")
 		os.Exit(1)
 	}
 	gameID, err := strconv.ParseInt(args[0], 10, 64)
@@ -185,18 +158,86 @@ func realtime(args ...string) {
 	}
 
 	client := loadClient()
-
-	err = client.NotificationConnect()
-	fmt.Printf("NotificationConnect got err: %v\n", err)
-
-	client.GameConnect(gameID, func(g *googs.Game) {
-		fmt.Printf("GameConnect got response:\n%s\n", formatObject(g))
+	client.NotificationConnect()
+	client.ConnectGame(gameID, func(g *googs.Game) {
+		fmt.Printf("ConnectGame got response:\n%s\n", formatObject(g))
 	})
-
 	client.OnMove(gameID, func(m *googs.GameMove) {
 		fmt.Printf("OnMove got response:\n%s\n", formatObject(m))
 	})
 
 	// Keep the main goroutine alive to process events
 	select {}
+}
+
+func playMove(args ...string) {
+	if len(args) != 2 {
+		fmt.Printf("Syntax: move <gameID> <coord> (\"A1\" format)\n")
+		os.Exit(1)
+	}
+	gameID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		fmt.Printf("Invalid gameID %s\n", args[0])
+		os.Exit(1)
+	}
+	coord := args[1]
+
+	client := loadClient()
+	client.ConnectGame(gameID, nil)
+
+	x, y, err := A1ToOrigin(19, coord)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
+	if confirm(fmt.Sprintf("Play at %s ([%d, %d]) on https://online-go.com/game/%d, proceed?", coord, x, y, gameID)) {
+		client.PlayMove(gameID, x, y)
+		// simple workaround to make sure the move is played
+		time.Sleep(time.Second * 2)
+	}
+}
+
+func A1ToOrigin(size int, coord string) (int, int, error) {
+	if len(coord) < 2 {
+		return -1, -1, fmt.Errorf("invalid coordinate string %q", coord)
+	}
+
+	col := rune(strings.ToUpper(coord)[0])
+	row := coord[1:]
+
+	var x int
+	if col >= 'A' && col <= 'H' {
+		x = int(col - 'A')
+	} else if col >= 'J' && col <= 'T' { // Account for skipped 'I'
+		x = int(col - 'A' - 1)
+	} else {
+		return -1, -1, fmt.Errorf("invalid column letter '%c' in coordinate %q: must be A-H or J-T (or a-h or j-t)", col, coord)
+	}
+
+	rowNum, err := strconv.Atoi(row)
+	if err != nil {
+		return -1, -1, fmt.Errorf("invalid row number format in coordinate %q: %w", coord, err)
+	}
+	y := size - rowNum
+
+	if x < 0 || x >= size || y < 0 || y >= size {
+		return 0, 0, fmt.Errorf("converted coordinates [%d, %d] from %q are out of board bounds (0-%d)", x, y, coord, size-1)
+	}
+
+	return x, y, nil
+
+}
+
+func confirm(prompt string) bool {
+	var answer string
+	for {
+		fmt.Printf("%s (yes/no) ", prompt)
+		fmt.Scanln(&answer)
+		switch answer {
+		case "yes":
+			return true
+		case "no":
+			return false
+		}
+	}
 }

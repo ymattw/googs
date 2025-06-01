@@ -22,6 +22,8 @@ func (c *Client) AboutMe() (*Me, error) {
 	return &res, nil
 }
 
+// Overview returns active games, open challenges etc.
+// NOTE: /me/games?ended__isnull=true can also return my active games.
 func (c *Client) Overview() (*Overview, error) {
 	res := Overview{}
 	if err := c.Get("/ui/overview", nil, &res); err != nil {

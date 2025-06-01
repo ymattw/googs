@@ -50,11 +50,15 @@ func (c *Client) NotificationConnect() error {
 	})
 }
 
-func (c *Client) GameConnect(gameID int64, fn func(*Game)) error {
-	callback := func(_ *socketio.Channel, g *Game) { fn(g) }
-	err := c.socket.On(fmt.Sprintf("game/%d/gamedata", gameID), callback)
-	if err != nil {
-		return err
+// NOTE: To debug server reponse, start with a `map[string]any` callback
+// parameter to ensure that the response can always be decoded successfully.
+func (c *Client) ConnectGame(gameID int64, fn func(*Game)) error {
+	if fn != nil {
+		callback := func(_ *socketio.Channel, g *Game) { fn(g) }
+		err := c.socket.On(fmt.Sprintf("game/%d/gamedata", gameID), callback)
+		if err != nil {
+			return err
+		}
 	}
 	return c.socket.Emit("game/connect", map[string]any{
 		"game_id":   gameID,
@@ -66,4 +70,13 @@ func (c *Client) GameConnect(gameID int64, fn func(*Game)) error {
 func (c *Client) OnMove(gameID int64, fn func(*GameMove)) error {
 	callback := func(_ *socketio.Channel, m *GameMove) { fn(m) }
 	return c.socket.On(fmt.Sprintf("game/%d/move", gameID), callback)
+}
+
+// PlayMove submits a move. ConnectGame must be called already..
+func (c *Client) PlayMove(gameID int64, x, y int) error {
+	return c.socket.Emit("game/move", map[string]any{
+		"game_id":   gameID,
+		"player_id": c.UserID,
+		"move":      fmt.Sprintf("%c%c", rune('a'+x), rune('a'+y)), // SGF
+	})
 }
