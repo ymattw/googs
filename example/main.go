@@ -5,17 +5,6 @@ a debug tool.
 Requires an OGS application (https://online-go.com/oauth2/applications/, choose
 Client Type: "Public", grant type "Resource owner password-based"). Keep note
 of the client id, client secret is not needed.
-
-Usage:
-
-	read -s PASS  # Avoid password being logged in shell history
-	go run . -c clientID -u username -p "$PASS" login
-	cat secret.json
-	go run . me
-	go run . overview
-	go run . myactivegames
-	go run . getraw /players/1
-	go run . getraw /megames ended__isnull=true
 */
 package main
 
@@ -40,7 +29,18 @@ var (
 )
 
 func usage() {
-	fmt.Printf("Usage: %s <login|me> [args ...]\n", os.Args[0])
+	fmt.Printf(`Usage:
+
+	read -s PASS  # Avoid password being logged in shell history
+	go run . -c clientID -u username -p "$PASS" login
+	cat secret.json
+	go run . me
+	go run . overview
+	go run . getraw /players/1
+	go run . getraw /me/games                     # all my games
+	go run . getraw /me/games ended__isnull=true  # my active games
+	go run . realtime                             # try realtime APIs
+	` + "\n")
 	os.Exit(1)
 }
 
@@ -60,12 +60,10 @@ func main() {
 		me()
 	case "overview":
 		overview()
-	case "myactivegames":
-		myactivegames()
 	case "getraw":
 		getraw(args...)
-	case "socket":
-		socket(args...)
+	case "realtime":
+		realtime(args...)
 	default:
 		usage()
 	}
@@ -108,12 +106,6 @@ func overview() {
 		}
 		fmt.Printf("%d %s %s (B) vs %s (W), %d moves, %s\n", i+1, a.Name, a.Game.Players.Black.Username, a.Game.Players.White.Username, len(a.Game.Moves), whosTurn)
 	}
-}
-
-func myactivegames() {
-	client := loadClient()
-	games, err := client.MyActiveGames()
-	fmt.Printf("%#v %v\n", games, err)
 }
 
 func getraw(args ...string) {
@@ -178,12 +170,12 @@ func formatObject(obj any) string {
 	if json.Indent(&out, []byte(data), "", "  ") != nil {
 		return ""
 	}
-	return string(out.Bytes())
+	return out.String()
 }
 
-func socket(args ...string) {
+func realtime(args ...string) {
 	if len(args) != 1 {
-		fmt.Printf("Syntax: socket <gameID>\n")
+		fmt.Printf("Syntax: realtime <gameID>\n")
 		os.Exit(1)
 	}
 	gameID, err := strconv.ParseInt(args[0], 10, 64)
@@ -193,24 +185,6 @@ func socket(args ...string) {
 	}
 
 	client := loadClient()
-
-	// client.Watch("connect", func(s socketio.Conn) {
-	// 	fmt.Println("Connected to OGS Socket.IO server.")
-	// })
-
-	// client.Watch("disconnect", func([]byte) {
-	// 	fmt.Println("Disconnected from OGS Socket.IO server.")
-	// })
-
-	// client.Watch("error", func([]byte) {
-	// 	fmt.Printf("Socket.IO error: %v\n", err)
-	// })
-
-	// Example of handling a specific event (e.g., game_data updates)
-	// client.Watch("game_data", func(databyte) {
-	//     fmt.Printf("Received game data: %s\n", string(data))
-	//     // Parse and process game data here
-	// })
 
 	err = client.NotificationConnect()
 	fmt.Printf("NotificationConnect got err: %v\n", err)
