@@ -75,7 +75,7 @@ func connect(args ...string) {
 			break
 		}
 
-		if gameState.PlayerToMove == client.UserID {
+		if gameState.IsMyTurn(client.UserID) {
 			for {
 				if err := playMove(client, gameID, game.BoardSize()); err != nil {
 					log.Printf("Failed to submit move: %v", err)

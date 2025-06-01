@@ -354,6 +354,10 @@ func (g *GameState) BoardSize() int {
 	return len(g.Board) // client.GameState() validates
 }
 
+func (g *GameState) IsMyTurn(myUserID int64) bool {
+	return g.PlayerToMove == myUserID
+}
+
 // OriginCoordinate is zero base coordinate.
 type OriginCoordinate struct {
 	X int
