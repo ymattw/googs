@@ -67,6 +67,12 @@ func (c *Client) ConnectGame(gameID int64, fn func(*Game)) error {
 	})
 }
 
+func (c *Client) DisconnectGame(gameID int64) error {
+	return c.socket.Emit("game/disconnect", map[string]any{
+		"game_id": gameID,
+	})
+}
+
 func (c *Client) OnMove(gameID int64, fn func(*GameMove)) error {
 	callback := func(_ *socketio.Channel, m *GameMove) { fn(m) }
 	return c.socket.On(fmt.Sprintf("game/%d/move", gameID), callback)
@@ -79,4 +85,9 @@ func (c *Client) PlayMove(gameID int64, x, y int) error {
 		"player_id": c.UserID,
 		"move":      fmt.Sprintf("%c%c", rune('a'+x), rune('a'+y)), // SGF
 	})
+}
+
+func (c *Client) OnClock(gameID int64, fn func(*Clock)) error {
+	callback := func(_ *socketio.Channel, clock *Clock) { fn(clock) }
+	return c.socket.On(fmt.Sprintf("game/%d/clock", gameID), callback)
 }

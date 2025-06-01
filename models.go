@@ -160,6 +160,7 @@ type Clock struct {
 	Title           string
 	WhitePlayerID   int64      `json:"white_player_id"`
 	WhiteTime       PlayerTime `json:"white_time"`
+	Now             Timestamp  // Only for OnClock
 }
 
 // PlayerTime struct

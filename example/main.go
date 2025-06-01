@@ -165,6 +165,9 @@ func watch(args ...string) {
 	client.OnMove(gameID, func(m *googs.GameMove) {
 		fmt.Printf("OnMove got response:\n%s\n", formatObject(m))
 	})
+	client.OnClock(gameID, func(c *googs.Clock) {
+		fmt.Printf("OnClock got response:\n%s\n", formatObject(c))
+	})
 
 	// Keep the main goroutine alive to process events
 	select {}
