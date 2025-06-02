@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/ymattw/googs"
 )
@@ -13,19 +12,31 @@ func watch(args ...string) {
 		fmt.Printf("Syntax: watch <gameID>\n")
 		os.Exit(1)
 	}
-	gameID, err := strconv.ParseInt(args[0], 10, 64)
+	gameID, err := parseGameID(args[0])
 	if err != nil {
-		fmt.Printf("Invalid gameID %s\n", args[0])
+		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
 
 	client := loadClient()
 	client.NotificationConnect()
-	client.ConnectGame(gameID, func(g *googs.GameData) {
-		fmt.Printf("ConnectGame got response:\n%s\n", formatObject(g))
-	})
+
+	if err := client.ConnectGame(gameID, func(g *googs.GameData) {
+		// fmt.Printf("ConnectGame got response:\n%s\n", formatObject(g))
+		fmt.Printf("Connected to game %s\n", g)
+	}); err != nil {
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
+
 	client.OnMove(gameID, func(m *googs.GameMove) {
-		fmt.Printf("OnMove got response:\n%s\n", formatObject(m))
+		// fmt.Printf("OnMove got response:\n%s\n", formatObject(m))
+		g, err := client.GameState(gameID)
+		if err != nil {
+			fmt.Printf("failed to get GameState: %v\n", err)
+			return
+		}
+		drawBoard(g)
 	})
 	client.OnClock(gameID, func(c *googs.Clock) {
 		fmt.Printf("OnClock got response:\n%s\n", formatObject(c))

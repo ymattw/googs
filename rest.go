@@ -45,6 +45,12 @@ func (c *Client) GameState(gameID int64) (*GameState, error) {
 	if err := c.Get(fmt.Sprintf("/api/v1/games/%d/state", gameID), nil, &res); err != nil {
 		return nil, err
 	}
+	if len(res.Board) == 0 || len(res.Board[0]) == 0 || len(res.Board) != len(res.Board[0]) {
+		return nil, fmt.Errorf("invalid empty Board")
+	}
+	if len(res.Board) != len(res.Board[0]) {
+		return nil, fmt.Errorf("invalid Board dimension %d x %d", len(res.Board), len(res.Board[0]))
+	}
 	return &res, nil
 }
 

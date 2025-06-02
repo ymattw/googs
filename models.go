@@ -108,6 +108,32 @@ type GameData struct {
 	Width                         int
 }
 
+func (g *GameData) URL() string {
+	return fmt.Sprintf("%s/game/%d", restBaseURL , g.GameID)
+}
+
+func (g *GameData) String() string {
+	whosTurn := "black"
+	if g.WhitesTurn() {
+		whosTurn = "white"
+	}
+	return fmt.Sprintf("%-10d %-10q %s (B) vs %s (W), %d moves, %s to play",
+			g.GameID,
+			g.GameName,
+			g.Players.Black.Username,
+			g.Players.White.Username,
+			len(g.Moves),
+			whosTurn)
+}
+
+func (g *GameData) BlacksTurn() bool {
+	return g.Clock.CurrentPlayerID == g.Players.Black.ID
+}
+
+func (g *GameData) WhitesTurn() bool {
+	return g.Clock.CurrentPlayerID == g.Players.White.ID
+}
+
 // Player ontains basic user information as part of GameData
 type Player struct {
 	ID           int64
@@ -164,8 +190,7 @@ type Overview struct {
 // Move is a list of [x, y, TimeDelta] but in different types, so needs
 // a customized decoder.
 type Move struct {
-	X         int
-	Y         int
+	OriginCoordinate
 	TimeDelta float64
 }
 
@@ -213,11 +238,11 @@ type GameOverview struct {
 }
 
 func (a *Game) BlacksTurn() bool {
-	return a.GameData.Clock.CurrentPlayerID == a.GameData.Players.Black.ID
+	return a.GameData.BlacksTurn()
 }
 
 func (a *Game) WhitesTurn() bool {
-	return a.GameData.Clock.CurrentPlayerID == a.GameData.Players.White.ID
+	return a.GameData.WhitesTurn()
 }
 
 type GameMove struct {
@@ -228,9 +253,85 @@ type GameMove struct {
 
 type GameState struct {
 	Board      [][]int
-	MoveNumber int `json:"move_number"`
-	LastMove   struct {
-		X int
-		Y int
-	} `json:"last_move"`
+	MoveNumber int              `json:"move_number"`
+	LastMove   OriginCoordinate `json:"last_move"`
+}
+
+func (g *GameState) BoardSize() int {
+	return len(g.Board) // GameState() already validated
+}
+
+func (g *GameState) String() string {
+	if g.LastMove.IsPass() {
+		return fmt.Sprintf("%d moves, last move was a pass", g.MoveNumber)
+	}
+
+	whoPlayed := ""
+	switch g.Board[g.LastMove.Y][g.LastMove.X] {
+	case 1:
+		whoPlayed = "black"
+	case 2:
+		whoPlayed = "white"
+	}
+	a1, _ := g.LastMove.ToA1Coordinate(g.BoardSize())
+	return fmt.Sprintf("%d moves, last move: %s %s", g.MoveNumber, whoPlayed, a1)
+}
+
+type OriginCoordinate struct {
+	X int
+	Y int
+}
+
+func (c OriginCoordinate) String() string {
+	return fmt.Sprintf("[%d,%d]", c.X, c.Y)
+}
+
+func (c OriginCoordinate) IsPass() bool {
+	return c.X == -1 || c.Y == -1
+}
+
+func (c OriginCoordinate) ToA1Coordinate(boardSize int) (A1Coordinate, error) {
+	res := A1Coordinate{}
+	if c.X < 0 || c.X >= boardSize || c.Y < 0 || c.Y >= boardSize {
+		return res, fmt.Errorf("OriginCoordinate %s is out of board bounds [0-%d]", c, boardSize-1)
+	}
+
+	res.Col = 'A' + rune(c.X)
+	if c.X >= 8 { // Skip 'I'
+		res.Col += 1
+	}
+	res.Row = boardSize - c.Y // Reverse counting
+	return res, nil
+}
+
+type A1Coordinate struct {
+	Col rune // 'A', 'B', ... (skip 'I')
+	Row int  // 1, 2, ...
+}
+
+func (c A1Coordinate) String() string {
+	return fmt.Sprintf("%c%d", c.Col, c.Row)
+}
+
+func (c A1Coordinate) ToOriginCoordinate(boardSize int) (OriginCoordinate, error) {
+	res := OriginCoordinate{}
+	col := c.Col
+	if col >= 'a' && col <= 'z' {
+		col -= 'a' - 'A' // to upper case
+	}
+
+	var x int
+	if col >= 'A' && col <= 'H' {
+		x = int(col - 'A')
+	} else if col >= 'J' && col <= 'T' { // Account for skipped 'I'
+		x = int(col - 'A' - 1)
+	} else {
+		return res, fmt.Errorf("invalid column letter '%c' in A1Coordinate %q: must be A-H or J-T (or a-h or j-t)", col, c)
+	}
+
+	y := boardSize - c.Row
+	if x < 0 || x >= boardSize || y < 0 || y >= boardSize {
+		return res, fmt.Errorf("converted OriginCoordinate %s from %q are out of board bounds [0-%d]", res, c, boardSize-1)
+	}
+	return res, nil
 }

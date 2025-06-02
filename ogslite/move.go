@@ -13,9 +13,9 @@ func move(args ...string) {
 		fmt.Printf("Syntax: move <gameID> <coord> (\"A1\" format)\n")
 		os.Exit(1)
 	}
-	gameID, err := strconv.ParseInt(args[0], 10, 64)
+	gameID, err := parseGameID(args[0])
 	if err != nil {
-		fmt.Printf("Invalid gameID %s\n", args[0])
+		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
 	coord := args[1]
@@ -23,7 +23,7 @@ func move(args ...string) {
 	client := loadClient()
 	client.ConnectGame(gameID, nil)
 
-	x, y, err := A1ToOrigin(19, coord)
+	x, y, err := a1ToOrigin(19, coord)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
@@ -35,7 +35,7 @@ func move(args ...string) {
 	}
 }
 
-func A1ToOrigin(size int, coord string) (int, int, error) {
+func a1ToOrigin(size int, coord string) (int, int, error) {
 	if len(coord) < 2 {
 		return -1, -1, fmt.Errorf("invalid coordinate string %q", coord)
 	}
