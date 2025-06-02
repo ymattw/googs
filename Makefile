@@ -1,5 +1,5 @@
 build:
-	go build -o cli ./example/main.go
+	go build ./...
 
 mod:
 	go mod tidy

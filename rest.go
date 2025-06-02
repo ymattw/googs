@@ -53,7 +53,7 @@ func (c *Client) Get(uri string, params url.Values, ptr any) error {
 		return fmt.Errorf("ptr argument must be a pointer, got %T", ptr)
 	}
 
-	body, err := c.GetRaw(uri, params)
+	body, err := ogsGet(uri, c.AccessToken, params)
 	if err != nil {
 		return err
 	}
@@ -61,10 +61,6 @@ func (c *Client) Get(uri string, params url.Values, ptr any) error {
 		return err
 	}
 	return nil
-}
-
-func (c *Client) GetRaw(uri string, params url.Values) ([]byte, error) {
-	return ogsGet(uri, c.AccessToken, params)
 }
 
 func ogsGet(uri string, accessToken string, params url.Values) ([]byte, error) {

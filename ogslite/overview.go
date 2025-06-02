@@ -1,0 +1,24 @@
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func overview() {
+	client := loadClient()
+	v, err := client.Overview()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Total %d active games\n", len(v.ActiveGames))
+	for i, a := range v.ActiveGames {
+		whosTurn := "opponent's turn"
+		if a.GameData.Clock.CurrentPlayerID == client.UserID {
+			whosTurn = "my turn"
+		}
+		fmt.Printf("%d %s %s (B) vs %s (W), %d moves, %s\n", i+1, a.Name, a.GameData.Players.Black.Username, a.GameData.Players.White.Username, len(a.GameData.Moves), whosTurn)
+	}
+}
