@@ -30,34 +30,22 @@ type Glicko2 struct {
 
 // OGSRating contains a `"version": 5` field besides the string keyed ratings,
 // so needs a customized decoder.
-type OGSRating struct {
-	Version int
-
-	// The `json:"-"` tag prevents the map itself from being marshaled back
-	// into a "Ratings" field if you were to re-marshal this struct. We'll
-	// populate this map manually during unmarshaling.
-	Ratings map[string]Glicko2 `json:"-"`
-}
+type OGSRating map[string]Glicko2
 
 func (r *OGSRating) UnmarshalJSON(data []byte) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
+	delete(raw, "version")
 
-	r.Ratings = make(map[string]Glicko2)
+	*r = make(map[string]Glicko2)
 	for key, value := range raw {
-		if key == "version" {
-			if err := json.Unmarshal(value, &r.Version); err != nil {
-				return err
-			}
-		} else {
-			var g Glicko2
-			if err := json.Unmarshal(value, &g); err != nil {
-				return err
-			}
-			r.Ratings[key] = g
+		g := Glicko2{}
+		if err := json.Unmarshal(value, &g); err != nil {
+			return err
 		}
+		(*r)[key] = g
 	}
 	return nil
 }
@@ -80,16 +68,16 @@ func (t *Timestamp) UnmarshalJSON(b []byte) error {
 }
 
 type GameData struct {
-	AgaHandicapScoring            bool    `json:"aga_handicap_scoring"`
-	AllowSelfCapture              bool    `json:"allow_self_capture"`
-	AllowSuperko                  bool    `json:"allow_superko"`
-	AutomaticStoneRemoval         bool    `json:"automatic_stone_removal"`
-	BlackPlayerID                 int64   `json:"black_player_id"`
-	Clock                         Clock   `json:"clock"`
-	GameID                        int64   `json:"game_id"`
-	GameName                      string  `json:"game_name"`
-	GroupIDs                      []any   `json:"group_ids"` // Can be []int or []string, depending on content
-	Handicap                      int     `json:"handicap"`
+	AgaHandicapScoring            bool  `json:"aga_handicap_scoring"`
+	AllowSelfCapture              bool  `json:"allow_self_capture"`
+	AllowSuperko                  bool  `json:"allow_superko"`
+	AutomaticStoneRemoval         bool  `json:"automatic_stone_removal"`
+	BlackPlayerID                 int64 `json:"black_player_id"`
+	Clock                         Clock
+	GameID                        int64  `json:"game_id"`
+	GameName                      string `json:"game_name"`
+	GroupIDs                      []any  `json:"group_ids"` // Can be []int or []string, depending on content
+	Handicap                      int
 	HandicapRankDifference        float32 `json:"handicap_rank_difference"`
 	Height                        int
 	InitialPlayer                 string `json:"initial_player"`
@@ -99,7 +87,7 @@ type GameData struct {
 	OpponentPlaysFirstAfterResume bool `json:"opponent_plays_first_after_resume"`
 	Phase                         string
 	PlayerPool                    map[string]Player `json:"player_pool"` // Keys are player IDs (string)
-	Players                       Players           `json:"players"`
+	Players                       Players
 	Private                       bool
 	Ranked                        bool
 	Rengo                         bool
@@ -170,10 +158,10 @@ type TimeControl struct {
 }
 
 type Overview struct {
-	ActiveGames []Game `json:"active_games"`
+	ActiveGames []GameOverview `json:"active_games"`
 }
 
-// Move is an array of [x, y, TimeDelta] but in different types, so needs
+// Move is a list of [x, y, TimeDelta] but in different types, so needs
 // a customized decoder.
 type Move struct {
 	X         int
@@ -211,6 +199,14 @@ func (m *Move) UnmarshalJSON(data []byte) error {
 }
 
 type Game struct {
+	ID       int64
+	Name     string
+	GameData GameData // Embedded
+}
+
+// GameOverview is almost identical to Game but with a different json tag,
+// which is for decoding the /api/v1/overview reponse.
+type GameOverview struct {
 	ID       int64
 	Name     string
 	GameData GameData `json:"json"` // Embedded
