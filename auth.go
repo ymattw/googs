@@ -145,7 +145,7 @@ func (c *Client) authenticate(data url.Values) error {
 	c.ExpiresIn = 0 // Unset to omit when persisting to file
 
 	// Request auth config
-	if err := c.Get("/ui/config/", nil, &c.Auth); err != nil {
+	if err := c.Get("/api/v1/ui/config/", nil, &c.Auth); err != nil {
 		return fmt.Errorf("failed to request auth config: %w", err)
 	}
 

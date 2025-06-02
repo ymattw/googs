@@ -7,22 +7,17 @@ import (
 	"time"
 )
 
-type Me struct {
-	ID       int64
-	Username string
-	About    string
-	Ranking  float64
-	Ratings  OGSRating
-}
-
-type Player struct {
+// User contains full profile of a user
+type User struct {
 	ID           int64
 	Username     string
 	Country      string
 	Professional bool
+	About        string
 	Ranking      float64
-	Rank         float64 // Some API uses "Rank"
 	Ratings      OGSRating
+	IsBot        bool   `json:"is_bot"`
+	IsFriend     bool   `json:"is_friend"`
 	UIClass      string `json:"ui_class"`
 }
 
@@ -67,12 +62,6 @@ func (r *OGSRating) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MyGame is the struct decoded from /me/games
-type MyGames struct {
-	Count   int
-	Results []MyGame
-}
-
 type Timestamp struct {
 	time.Time
 }
@@ -90,39 +79,21 @@ func (t *Timestamp) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type MyGame struct {
-	ID        int64
-	Name      string
-	Creator   int64
-	Width     int
-	Height    int
-	Rules     string
-	ranked    bool
-	Handicap  int
-	Komi      string
-	Outcome   string
-	Annulled  bool
-	Started   Timestamp
-	BlackLost bool `json:"black_lost"`
-	WhiteLost bool `json:"white_lost"`
-	Players   map[string]Player
-}
-
-type Game struct {
-	AgaHandicapScoring            bool   `json:"aga_handicap_scoring"`
-	AllowSelfCapture              bool   `json:"allow_self_capture"`
-	AllowSuperko                  bool   `json:"allow_superko"`
-	AutomaticStoneRemoval         bool   `json:"automatic_stone_removal"`
-	BlackPlayerID                 int64  `json:"black_player_id"`
-	Clock                         Clock  `json:"clock"`
-	GameID                        int64  `json:"game_id"`
-	GameName                      string `json:"game_name"`
-	GroupIDs                      []any  `json:"group_ids"` // Can be []int or []string, depending on content
-	Handicap                      int    `json:"handicap"`
-	HandicapRankDifference        int    `json:"handicap_rank_difference"`
+type GameData struct {
+	AgaHandicapScoring            bool    `json:"aga_handicap_scoring"`
+	AllowSelfCapture              bool    `json:"allow_self_capture"`
+	AllowSuperko                  bool    `json:"allow_superko"`
+	AutomaticStoneRemoval         bool    `json:"automatic_stone_removal"`
+	BlackPlayerID                 int64   `json:"black_player_id"`
+	Clock                         Clock   `json:"clock"`
+	GameID                        int64   `json:"game_id"`
+	GameName                      string  `json:"game_name"`
+	GroupIDs                      []any   `json:"group_ids"` // Can be []int or []string, depending on content
+	Handicap                      int     `json:"handicap"`
+	HandicapRankDifference        float32 `json:"handicap_rank_difference"`
 	Height                        int
 	InitialPlayer                 string `json:"initial_player"`
-	Komi                          float64
+	Komi                          float32
 	Latencies                     map[string]int64 // playerID => latencies
 	Moves                         []Move
 	OpponentPlaysFirstAfterResume bool `json:"opponent_plays_first_after_resume"`
@@ -147,6 +118,14 @@ type Game struct {
 	WhiteMustPassLast             bool        `json:"white_must_pass_last"`
 	WhitePlayerID                 int64       `json:"white_player_id"`
 	Width                         int
+}
+
+// Player ontains basic user information as part of GameData
+type Player struct {
+	ID           int64
+	Username     string
+	Professional bool
+	Rank         float64
 }
 
 // Clock struct
@@ -191,7 +170,7 @@ type TimeControl struct {
 }
 
 type Overview struct {
-	ActiveGames []ActiveGame `json:"active_games"`
+	ActiveGames []Game `json:"active_games"`
 }
 
 // Move is an array of [x, y, TimeDelta] but in different types, so needs
@@ -231,22 +210,31 @@ func (m *Move) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ActiveGame struct {
-	ID   int64
-	Name string
-	Game Game `json:"json"` // Embedded
+type Game struct {
+	ID       int64
+	Name     string
+	GameData GameData `json:"json"` // Embedded
 }
 
-func (a *ActiveGame) BlacksTurn() bool {
-	return a.Game.Clock.CurrentPlayerID == a.Game.Players.Black.ID
+func (a *Game) BlacksTurn() bool {
+	return a.GameData.Clock.CurrentPlayerID == a.GameData.Players.Black.ID
 }
 
-func (a *ActiveGame) WhitesTurn() bool {
-	return a.Game.Clock.CurrentPlayerID == a.Game.Players.White.ID
+func (a *Game) WhitesTurn() bool {
+	return a.GameData.Clock.CurrentPlayerID == a.GameData.Players.White.ID
 }
 
 type GameMove struct {
 	GameID     int64 `json:"game_id"`
 	Move       Move
 	MoveNumber int `json:"move_number"`
+}
+
+type GameState struct {
+	Board      [][]int
+	MoveNumber int `json:"move_number"`
+	LastMove   struct {
+		X int
+		Y int
+	} `json:"last_move"`
 }

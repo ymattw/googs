@@ -14,9 +14,9 @@ const (
 	restBaseURL = "https://online-go.com"
 )
 
-func (c *Client) AboutMe() (*Me, error) {
-	res := Me{}
-	if err := c.Get("/me", nil, &res); err != nil {
+func (c *Client) AboutMe() (*User, error) {
+	res := User{}
+	if err := c.Get("/api/v1//me", nil, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -26,18 +26,34 @@ func (c *Client) AboutMe() (*Me, error) {
 // NOTE: /me/games?ended__isnull=true can also return my active games.
 func (c *Client) Overview() (*Overview, error) {
 	res := Overview{}
-	if err := c.Get("/ui/overview", nil, &res); err != nil {
+	if err := c.Get("/api/v1//ui/overview", nil, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
-func (c *Client) Get(api string, params url.Values, ptr any) error {
+func (c *Client) Game(gameID int64) (*Game, error) {
+	res := Game{}
+	if err := c.Get(fmt.Sprintf("/api/v1/games/%d", gameID), nil, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *Client) GameState(gameID int64) (*GameState, error) {
+	res := GameState{}
+	if err := c.Get(fmt.Sprintf("/api/v1/games/%d/state", gameID), nil, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *Client) Get(uri string, params url.Values, ptr any) error {
 	if reflect.ValueOf(ptr).Kind() != reflect.Ptr {
 		return fmt.Errorf("ptr argument must be a pointer, got %T", ptr)
 	}
 
-	body, err := c.GetRaw(api, params)
+	body, err := c.GetRaw(uri, params)
 	if err != nil {
 		return err
 	}
@@ -47,8 +63,8 @@ func (c *Client) Get(api string, params url.Values, ptr any) error {
 	return nil
 }
 
-func (c *Client) GetRaw(api string, params url.Values) ([]byte, error) {
-	return ogsGet("/api/v1"+api, c.AccessToken, params)
+func (c *Client) GetRaw(uri string, params url.Values) ([]byte, error) {
+	return ogsGet(uri, c.AccessToken, params)
 }
 
 func ogsGet(uri string, accessToken string, params url.Values) ([]byte, error) {

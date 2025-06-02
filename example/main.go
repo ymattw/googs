@@ -37,6 +37,8 @@ func usage() {
 	go run . overview
 	go run . getraw /players/1
 	go run . getraw /me/games       # all my games
+	go run . game gameID            # show game information
+	go run . state gameID           # show game state
 	go run . watch gameID           # watch a game
 	go run . playmove gameID coord  # submit a move (coord is "A1" format)
 	` + "\n")
@@ -59,6 +61,10 @@ func main() {
 		overview()
 	case "getraw":
 		getraw(args...)
+	case "game":
+		game(args...)
+	case "state":
+		state(args...)
 	case "watch":
 		watch(args...)
 	case "playmove":
@@ -94,10 +100,10 @@ func overview() {
 	fmt.Printf("Total %d active games\n", len(v.ActiveGames))
 	for i, a := range v.ActiveGames {
 		whosTurn := "opponent's turn"
-		if a.Game.Clock.CurrentPlayerID == client.UserID {
+		if a.GameData.Clock.CurrentPlayerID == client.UserID {
 			whosTurn = "my turn"
 		}
-		fmt.Printf("%d %s %s (B) vs %s (W), %d moves, %s\n", i+1, a.Name, a.Game.Players.Black.Username, a.Game.Players.White.Username, len(a.Game.Moves), whosTurn)
+		fmt.Printf("%d %s %s (B) vs %s (W), %d moves, %s\n", i+1, a.Name, a.GameData.Players.Black.Username, a.GameData.Players.White.Username, len(a.GameData.Moves), whosTurn)
 	}
 }
 
@@ -146,6 +152,46 @@ func formatObject(obj any) string {
 	return out.String()
 }
 
+func game(args ...string) {
+	if len(args) != 1 {
+		fmt.Printf("Syntax: game <gameID>\n")
+		os.Exit(1)
+	}
+	gameID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		fmt.Printf("Invalid gameID %s\n", args[0])
+		os.Exit(1)
+	}
+
+	client := loadClient()
+	g, err := client.Game(gameID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("%s\n", formatObject(g))
+}
+
+func state(args ...string) {
+	if len(args) != 1 {
+		fmt.Printf("Syntax: state <gameID>\n")
+		os.Exit(1)
+	}
+	gameID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		fmt.Printf("Invalid gameID %s\n", args[0])
+		os.Exit(1)
+	}
+
+	client := loadClient()
+	b, err := client.GameState(gameID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("%s\n", formatObject(b))
+}
+
 func watch(args ...string) {
 	if len(args) != 1 {
 		fmt.Printf("Syntax: watch <gameID>\n")
@@ -159,7 +205,7 @@ func watch(args ...string) {
 
 	client := loadClient()
 	client.NotificationConnect()
-	client.ConnectGame(gameID, func(g *googs.Game) {
+	client.ConnectGame(gameID, func(g *googs.GameData) {
 		fmt.Printf("ConnectGame got response:\n%s\n", formatObject(g))
 	})
 	client.OnMove(gameID, func(m *googs.GameMove) {

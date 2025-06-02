@@ -52,9 +52,9 @@ func (c *Client) NotificationConnect() error {
 
 // NOTE: To debug server reponse, start with a `map[string]any` callback
 // parameter to ensure that the response can always be decoded successfully.
-func (c *Client) ConnectGame(gameID int64, fn func(*Game)) error {
+func (c *Client) ConnectGame(gameID int64, fn func(*GameData)) error {
 	if fn != nil {
-		callback := func(_ *socketio.Channel, g *Game) { fn(g) }
+		callback := func(_ *socketio.Channel, g *GameData) { fn(g) }
 		err := c.socket.On(fmt.Sprintf("game/%d/gamedata", gameID), callback)
 		if err != nil {
 			return err
