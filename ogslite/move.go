@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func playMove(args ...string) {
+func move(args ...string) {
 	if len(args) != 2 {
 		fmt.Printf("Syntax: move <gameID> <coord> (\"A1\" format)\n")
 		os.Exit(1)

@@ -1,11 +1,9 @@
-/*
-Package main offers an example usage of the googs package, and it's actually
-a debug tool.
-
-Requires an OGS application (https://online-go.com/oauth2/applications/, choose
-Client Type: "Public", grant type "Resource owner password-based"). Keep note
-of the client id, client secret is not needed.
-*/
+// Package main offers a minimal OGS client mainly to showcase usage of the
+// googs package, as well as serving as a debug tool for developing googs.
+//
+// Requires an OGS application (https://online-go.com/oauth2/applications/,
+// choose Client Type: "Public" so that we do not need a client sect, choose
+// grant type "Resource owner password-based").
 package main
 
 import (
@@ -22,20 +20,23 @@ var (
 	secretFile = flag.String("f", "secret.json", "file to write client info to and load from")
 )
 
-func usage() {
-	fmt.Printf(`Usage:
+const usageText = `Usage:
 
-	read -s PASS  # Avoid password being logged in shell history
+	read -s PASS                    # avoid log password into shell history
 	go run . -c clientID -u username -p "$PASS" login
-	cat secret.json
-	go run . overview
-	go run . get /players/1
-	go run . get /me/games       # all my games
-	go run . game gameID            # show game information
-	go run . state gameID           # show game state
-	go run . watch gameID           # watch a game
-	go run . playmove gameID coord  # submit a move (coord is "A1" format)
-	` + "\n")
+	cat secret.json			# secrets are stored after login once
+
+	go run . overview		# show my active games
+	go run . board 123              # show game state and print board
+	go run . move 123 Q16           # submit a move at coordinate in "A1" format
+	go run . watch 123              # watch a game
+	go run . play 123               # connect to a game and play in GNU Go style
+	go run . rest /api/v1/players/1 # debug rest API (shows user profile)
+	go run . rest /api/v1/games/123 # show game information
+`
+
+func usage() {
+	fmt.Printf(usageText + "\n")
 	os.Exit(1)
 }
 
@@ -53,16 +54,14 @@ func main() {
 		login()
 	case "overview":
 		overview()
-	case "get":
-		get(args...)
-	case "game":
-		game(args...)
-	case "state":
-		state(args...)
+	case "board":
+		board(args...)
+	case "move":
+		move(args...)
 	case "watch":
 		watch(args...)
-	case "playmove":
-		playMove(args...)
+	case "rest":
+		rest(args...)
 	default:
 		usage()
 	}
@@ -75,16 +74,6 @@ func loadClient() *googs.Client {
 		os.Exit(1)
 	}
 	return client
-}
-
-func formatJSON(body []byte) ([]byte, error) {
-	var out bytes.Buffer
-	err := json.Indent(&out, []byte(body), "", "  ")
-	if err != nil {
-		return nil, err
-	}
-
-	return out.Bytes(), nil
 }
 
 func formatObject(obj any) string {

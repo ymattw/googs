@@ -5,9 +5,9 @@ import (
 	"os"
 )
 
-func get(args ...string) {
+func rest(args ...string) {
 	if len(args) != 1 {
-		fmt.Printf("Syntax: get <api>\n")
+		fmt.Printf("Syntax: rest <api>\n")
 		os.Exit(1)
 	}
 	api := args[0]

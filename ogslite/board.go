@@ -6,9 +6,9 @@ import (
 	"strconv"
 )
 
-func game(args ...string) {
+func board(args ...string) {
 	if len(args) != 1 {
-		fmt.Printf("Syntax: game <gameID>\n")
+		fmt.Printf("Syntax: board <gameID>\n")
 		os.Exit(1)
 	}
 	gameID, err := strconv.ParseInt(args[0], 10, 64)
@@ -18,10 +18,10 @@ func game(args ...string) {
 	}
 
 	client := loadClient()
-	g, err := client.Game(gameID)
+	b, err := client.GameState(gameID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("%s\n", formatObject(g))
+	fmt.Printf("%s\n", formatObject(b))
 }

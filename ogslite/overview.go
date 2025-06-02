@@ -14,11 +14,17 @@ func overview() {
 	}
 
 	fmt.Printf("Total %d active games\n", len(v.ActiveGames))
-	for i, a := range v.ActiveGames {
+	for _, a := range v.ActiveGames {
 		whosTurn := "opponent's turn"
 		if a.GameData.Clock.CurrentPlayerID == client.UserID {
 			whosTurn = "my turn"
 		}
-		fmt.Printf("%d %s %s (B) vs %s (W), %d moves, %s\n", i+1, a.Name, a.GameData.Players.Black.Username, a.GameData.Players.White.Username, len(a.GameData.Moves), whosTurn)
+		fmt.Printf("%-10d %-10s %s (B) vs %s (W), %d moves, %s\n",
+			a.ID,
+			a.Name,
+			a.GameData.Players.Black.Username,
+			a.GameData.Players.White.Username,
+			len(a.GameData.Moves),
+			whosTurn)
 	}
 }
