@@ -12,18 +12,58 @@ const (
 	GridChar   = "〸"
 	BlackStone = "⚫"
 	WhiteStone = "⚪"
-	ColStart   = 'Ａ' // Full-width Latin capital A
 
 	// 256-color codes https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
 	GridColor               = 238 // Grid foreground: light grey
 	BoardColor              = 243 // Board background: dark grey
 	BlackLastMoveBackground = 1
 	WhiteLastMoveBackground = 1
-
-	// ANSI color escape codes
-	Reset   = "\033[0m"
-	Reverse = "\033[7m"
 )
+
+type Stone int
+
+const (
+	Empty Stone = iota
+	Black
+	White
+)
+
+type Cell struct {
+	Stone      Stone
+	IsLastMove bool
+}
+
+func newCell(g *googs.GameState, row, col int) Cell {
+	return Cell{
+		Stone:      Stone(g.Board[row][col]),
+		IsLastMove: g.LastMove.X == col && g.LastMove.Y == row,
+	}
+}
+
+func (c Cell) content() string {
+	return map[Stone]string{
+		Empty: GridChar,
+		Black: BlackStone,
+		White: WhiteStone,
+	}[c.Stone]
+}
+
+func (c Cell) StyledContent() string {
+	fg := fgColor(GridColor)
+	bg := bgColor(BoardColor)
+
+	switch c.Stone {
+	case Black:
+		if c.IsLastMove {
+			bg = bgColor(BlackLastMoveBackground)
+		}
+	case White:
+		if c.IsLastMove {
+			bg = bgColor(WhiteLastMoveBackground)
+		}
+	}
+	return fmt.Sprintf("%s%s%s%s", fg, bg, c.content(), "\033[0m")
+}
 
 func fgColor(colorCode int) string {
 	return fmt.Sprintf("\033[38;5;%dm", colorCode)
@@ -54,22 +94,21 @@ func board(args ...string) {
 	drawBoard(g)
 }
 
+func colLabel(col int) rune {
+	letter := 'Ａ' + rune(col) // Full-width Latin capital A
+	if col >= 8 {
+		letter += 1
+	}
+	return letter
+}
+
 func drawBoard(g *googs.GameState) {
 	size := g.BoardSize()
-
-	// Helper function to get the column letter, skipping 'I'
-	getColumnLetter := func(col int) rune {
-		letter := ColStart + rune(col)
-		if col >= 8 {
-			letter += 1
-		}
-		return letter
-	}
 
 	// Top coordinate labels (A, B, C, ... skipping I)
 	fmt.Printf("%3s", " ") // 3-char offset for row numbers on the left
 	for c := 0; c < size; c++ {
-		fmt.Printf("%c", getColumnLetter(c))
+		fmt.Printf("%c", colLabel(c))
 	}
 	fmt.Println()
 
@@ -78,24 +117,8 @@ func drawBoard(g *googs.GameState) {
 		fmt.Printf("%2d ", size-row)
 
 		for col := 0; col < size; col++ {
-			var cellContent string
-			isLastMove := g.LastMove.X == col && g.LastMove.Y == row
-
-			switch g.Board[row][col] {
-			case 0:
-				cellContent = GridChar
-			case 1: // Black stone
-				cellContent = BlackStone
-				if isLastMove {
-					cellContent = bgColor(BlackLastMoveBackground) + BlackStone
-				}
-			case 2: // White stone
-				cellContent = WhiteStone
-				if isLastMove {
-					cellContent = bgColor(WhiteLastMoveBackground) + WhiteStone
-				}
-			}
-			fmt.Printf("%s%s%s%s", fgColor(GridColor), bgColor(BoardColor), cellContent, Reset)
+			cell := newCell(g, row, col)
+			fmt.Printf("%s", cell.StyledContent())
 		}
 		// Right side coordinate label (19, 18, .., 1)
 		fmt.Printf(" %-2d\n", size-row)
@@ -104,7 +127,7 @@ func drawBoard(g *googs.GameState) {
 	// Bottom coordinate labels (A, B, C, ... skipping I)
 	fmt.Printf("%3s", " ") // 3-char offset for row numbers on the left
 	for c := 0; c < size; c++ {
-		fmt.Printf("%c", getColumnLetter(c))
+		fmt.Printf("%c", colLabel(c))
 	}
 	fmt.Printf("\n\n%s\n\n", g)
 }
