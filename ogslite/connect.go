@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strconv"
@@ -76,7 +77,7 @@ func connect(args ...string) {
 		currentPlayer := game.PlayerByID(gameState.PlayerToMove)
 		if currentPlayer.ID == client.UserID {
 			fmt.Printf("It's your turn\n")
-			// TODO: play a move, resign, pass
+			playMove(client, gameID)
 		} else {
 			s := game.BlackPlayer()
 			if currentPlayer.ID == game.WhitePlayerID {
@@ -88,31 +89,40 @@ func connect(args ...string) {
 		select {
 		case gameMove = <-chGameMove:
 			fmt.Printf("received game move %d: %v\n", gameMove.MoveNumber, gameMove.Move.OriginCoordinate)
-
 		case game = <-chGame:
 			fmt.Printf("received new game data: %s\n", game)
+
+			// TODO: add a default case to avoid deadlock after failed playMove
 		}
 	}
 }
 
-func playMove() {
-	// if coord == "resign" {
-	// 	if confirm(fmt.Sprintf("Resign https://online-go.com/game/%d, are you sure?", gameID)) {
-	// 		client.GameResign(gameID)
-	// 		waitSignal(moved, 5)
-	// 	}
-	// 	return
-	// }
-	//
-	// x, y, err := a1ToOrigin(19, coord)
-	// if err != nil {
-	// 	fmt.Printf("%v\n", err)
-	// 	os.Exit(1)
-	// }
-	// if confirm(fmt.Sprintf("Play at %s ([%d, %d]) on https://online-go.com/game/%d, proceed?", coord, x, y, gameID)) {
-	// 	client.GameMove(gameID, x, y)
-	// 	waitSignal(moved, 5)
-	// }
+func playMove(client *googs.Client, gameID int64) {
+	for {
+		fmt.Printf(`Enter "pass", "resign" or a coordinate in "A1" format` + "\n> ")
+		reader := bufio.NewReader(os.Stdin)
+		cmd, _ := reader.ReadString('\n')
+		cmd = strings.TrimSpace(strings.ToUpper(cmd))
+
+		switch cmd {
+		case "PASS":
+			// TODO
+			fmt.Println("PASS")
+			return
+		case "RESIGN":
+			if client.GameResign(gameID) != nil {
+				return
+			}
+		default:
+			x, y, err := a1ToOrigin(19, cmd)
+			if err == nil {
+				client.GameMove(gameID, x, y)
+				fmt.Println("played a move!")
+				// XXX: async problem
+				return
+			}
+		}
+	}
 }
 
 func a1ToOrigin(size int, coord string) (int, int, error) {
@@ -143,18 +153,4 @@ func a1ToOrigin(size int, coord string) (int, int, error) {
 	}
 
 	return x, y, nil
-}
-
-func confirm(prompt string) bool {
-	var answer string
-	for {
-		fmt.Printf("%s (yes/no) ", prompt)
-		fmt.Scanln(&answer)
-		switch answer {
-		case "yes":
-			return true
-		case "no":
-			return false
-		}
-	}
 }
