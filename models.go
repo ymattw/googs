@@ -108,22 +108,18 @@ type GameData struct {
 	Width                         int
 }
 
-func (g *GameData) URL() string {
-	return fmt.Sprintf("%s/game/%d", restBaseURL , g.GameID)
-}
-
 func (g *GameData) String() string {
 	whosTurn := "black"
 	if g.WhitesTurn() {
 		whosTurn = "white"
 	}
 	return fmt.Sprintf("%-10d %-10q %s (B) vs %s (W), %d moves, %s to play",
-			g.GameID,
-			g.GameName,
-			g.Players.Black.Username,
-			g.Players.White.Username,
-			len(g.Moves),
-			whosTurn)
+		g.GameID,
+		g.GameName,
+		g.Players.Black.Username,
+		g.Players.White.Username,
+		len(g.Moves),
+		whosTurn)
 }
 
 func (g *GameData) BlacksTurn() bool {

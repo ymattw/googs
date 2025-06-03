@@ -87,6 +87,13 @@ func (c *Client) PlayMove(gameID int64, x, y int) error {
 	})
 }
 
+func (c *Client) Resign(gameID int64) error {
+	return c.socket.Emit("game/resign", map[string]any{
+		"auth":    c.ChatAuth,
+		"game_id": gameID,
+	})
+}
+
 func (c *Client) OnClock(gameID int64, fn func(*Clock)) error {
 	callback := func(_ *socketio.Channel, clock *Clock) { fn(clock) }
 	return c.socket.On(fmt.Sprintf("game/%d/clock", gameID), callback)

@@ -10,7 +10,7 @@ import (
 
 func move(args ...string) {
 	if len(args) != 2 {
-		fmt.Printf("Syntax: move <gameID> <coord> (\"A1\" format)\n")
+		fmt.Printf("Syntax: move <gameID> <A1Coord | resign>\n")
 		os.Exit(1)
 	}
 	gameID, err := parseGameID(args[0])
@@ -22,6 +22,15 @@ func move(args ...string) {
 
 	client := loadClient()
 	client.ConnectGame(gameID, nil)
+	if coord == "resign" {
+		if confirm(fmt.Sprintf("Resign https://online-go.com/game/%d, are you sure?", gameID)) {
+			client.Resign(gameID)
+			client.DisconnectGame(gameID)
+			// simple workaround to make sure the move is played
+			time.Sleep(time.Second * 2)
+		}
+		return
+	}
 
 	x, y, err := a1ToOrigin(19, coord)
 	if err != nil {

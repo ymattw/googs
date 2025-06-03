@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	restBaseURL = "https://online-go.com"
+	ogsBaseURL = "https://online-go.com"
 )
 
 func (c *Client) AboutMe() (*User, error) {
@@ -45,10 +45,10 @@ func (c *Client) GameState(gameID int64) (*GameState, error) {
 	if err := c.Get(fmt.Sprintf("/api/v1/games/%d/state", gameID), nil, &res); err != nil {
 		return nil, err
 	}
-	if len(res.Board) == 0 || len(res.Board[0]) == 0 || len(res.Board) != len(res.Board[0]) {
+	if len(res.Board) == 0 || len(res.Board[0]) == 0 {
 		return nil, fmt.Errorf("invalid empty Board")
 	}
-	if len(res.Board) != len(res.Board[0]) {
+	if len(res.Board) != len(res.Board[0]) || len(res.Board) > 25 {
 		return nil, fmt.Errorf("invalid Board dimension %d x %d", len(res.Board), len(res.Board[0]))
 	}
 	return &res, nil
@@ -70,7 +70,7 @@ func (c *Client) Get(uri string, params url.Values, ptr any) error {
 }
 
 func ogsGet(uri string, accessToken string, params url.Values) ([]byte, error) {
-	url := restBaseURL + uri
+	url := ogsBaseURL + uri
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func ogsGet(uri string, accessToken string, params url.Values) ([]byte, error) {
 }
 
 func ogsPost(uri string, data url.Values) ([]byte, error) {
-	resp, err := http.PostForm(restBaseURL+uri, data)
+	resp, err := http.PostForm(ogsBaseURL+uri, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to post %q: %v", uri, err)
 	}
