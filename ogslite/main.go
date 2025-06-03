@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ymattw/googs"
 )
@@ -96,4 +97,14 @@ func parseGameID(s string) (int64, error) {
 		return 0, fmt.Errorf("failed to extract gameID from %q: %w", s, err)
 	}
 	return gameID, nil
+}
+
+func waitSignal[T any](signal <-chan T, seconds int) error {
+	timeout := time.Duration(seconds) * time.Second
+	select {
+	case <-signal:
+		return nil
+	case <-time.After(timeout):
+		return fmt.Errorf("timedout")
+	}
 }

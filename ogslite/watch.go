@@ -19,15 +19,17 @@ func watch(args ...string) {
 	}
 
 	client := loadClient()
-	client.NotificationConnect()
 
-	if err := client.ConnectGame(gameID, func(g *googs.GameData) {
-		// fmt.Printf("ConnectGame got response:\n%s\n", formatObject(g))
+	connected := make(chan struct{})
+	if err := client.GameConnect(gameID, func(g *googs.GameData) {
 		fmt.Printf("Connected to game %s\n", g)
+		close(connected)
 	}); err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
+	waitSignal(connected, 5)
+	defer client.GameDisconnect(gameID)
 
 	client.OnMove(gameID, func(m *googs.GameMove) {
 		// fmt.Printf("OnMove got response:\n%s\n", formatObject(m))
@@ -38,9 +40,10 @@ func watch(args ...string) {
 		}
 		drawBoard(g)
 	})
-	client.OnClock(gameID, func(c *googs.Clock) {
-		fmt.Printf("OnClock got response:\n%s\n", formatObject(c))
-	})
+
+	// client.OnClock(gameID, func(c *googs.Clock) {
+	// 	fmt.Printf("OnClock got response:\n%s\n", formatObject(c))
+	// })
 
 	// Keep the main goroutine alive to process events
 	select {}

@@ -5,7 +5,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/ymattw/googs"
 )
 
 func move(args ...string) {
@@ -21,13 +22,27 @@ func move(args ...string) {
 	coord := args[1]
 
 	client := loadClient()
-	client.ConnectGame(gameID, nil)
+	connected := make(chan struct{})
+	if err := client.GameConnect(gameID, func(g *googs.GameData) {
+		fmt.Printf("Connected to game %s\n", g)
+		close(connected)
+	}); err != nil {
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
+	waitSignal(connected, 5)
+	defer client.GameDisconnect(gameID)
+
+	moved := make(chan struct{})
+	client.OnMove(gameID, func(m *googs.GameMove) {
+		fmt.Printf("move played: %v\n", m)
+		close(moved)
+	})
+
 	if coord == "resign" {
 		if confirm(fmt.Sprintf("Resign https://online-go.com/game/%d, are you sure?", gameID)) {
-			client.Resign(gameID)
-			client.DisconnectGame(gameID)
-			// simple workaround to make sure the move is played
-			time.Sleep(time.Second * 2)
+			client.GameResign(gameID)
+			waitSignal(moved, 5)
 		}
 		return
 	}
@@ -38,9 +53,8 @@ func move(args ...string) {
 		os.Exit(1)
 	}
 	if confirm(fmt.Sprintf("Play at %s ([%d, %d]) on https://online-go.com/game/%d, proceed?", coord, x, y, gameID)) {
-		client.PlayMove(gameID, x, y)
-		// simple workaround to make sure the move is played
-		time.Sleep(time.Second * 2)
+		client.GameMove(gameID, x, y)
+		waitSignal(moved, 5)
 	}
 }
 

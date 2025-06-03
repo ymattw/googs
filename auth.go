@@ -21,6 +21,7 @@ type Token struct {
 type Auth struct {
 	ChatAuth         string `json:"chat_auth"`
 	NotificationAuth string `json:"notification_auth"`
+	UserJWT          string `json:"user_jwt"`
 }
 
 type Client struct {
