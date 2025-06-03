@@ -11,10 +11,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net/url"
 	"os"
-	"path"
 	"strconv"
+	"strings"
 
 	"github.com/ymattw/googs"
 )
@@ -90,16 +89,11 @@ func formatObject(obj any) string {
 
 // Can also take a URL like https://online-go.com/game/123
 func parseGameID(s string) (int64, error) {
-	u, err := url.Parse(s)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse %q: %w", s, err)
-	}
-
-	part := path.Base(u.Path)
-	gameID, err := strconv.ParseInt(part, 10, 64)
+	parts := strings.Split("/"+s, "/")
+	last := parts[len(parts)-1]
+	gameID, err := strconv.ParseInt(last, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("failed to extract gameID from %q: %w", s, err)
 	}
-
 	return gameID, nil
 }
