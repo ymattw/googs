@@ -44,9 +44,9 @@ func (c *Client) Disconnect() {
 // GameConnect starts watching gamedata and emit the connect message.
 // NOTE: To debug server reponse, start with a `map[string]any` callback
 // parameter to ensure that the response can always be decoded successfully.
-func (c *Client) GameConnect(gameID int64, fn func(*GameData)) error {
+func (c *Client) GameConnect(gameID int64, fn func(*Game)) error {
 	if fn != nil {
-		callback := func(_ *socketio.Channel, g *GameData) { fn(g) }
+		callback := func(_ *socketio.Channel, g *Game) { fn(g) }
 		err := c.socket.On(fmt.Sprintf("game/%d/gamedata", gameID), callback)
 		if err != nil {
 			return err

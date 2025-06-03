@@ -10,7 +10,7 @@ import (
 	"github.com/ymattw/googs"
 )
 
-func play(args ...string) {
+func connect(args ...string) {
 	if len(args) != 1 {
 		fmt.Printf("Syntax: play <gameID>\n")
 		os.Exit(1)
@@ -23,50 +23,74 @@ func play(args ...string) {
 
 	client := loadClient()
 
-	chGameData := make(chan *googs.GameData)
-	if err := client.GameConnect(gameID, func(g *googs.GameData) {
-		chGameData <- g
+	// Fetch current game information once
+	game, err := client.Game(gameID)
+	if err != nil {
+		fmt.Printf("failed to get game information %v\n", err)
+		os.Exit(1)
+	}
+	// TODO: research how is the Game struct different for Rengo games
+	if game.Rengo {
+		fmt.Printf("Rengo game is not supported yet\n")
+		os.Exit(1)
+	}
+
+	chGame := make(chan *googs.Game)
+	if err := client.GameConnect(gameID, func(g *googs.Game) {
+		chGame <- g
 	}); err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
-
-	// Consume the initial gamedata (means connected)
-	gameData, err := waitChannel(chGameData, time.Second*5)
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
-	}
 	defer client.GameDisconnect(gameID)
-	fmt.Printf("Connected to game %s\n%s\n", gameData.URL(), gameData)
+	fmt.Printf("Connected to game %s\n%s\n", game.URL(), game)
 
-	if !gameData.IsMyGame(client.UserID) {
-		fmt.Printf("Not your game\n")
-		os.Exit(1)
+	isMyGame := game.IsMyGame(client.UserID)
+	if !isMyGame {
+		fmt.Printf("Not your game, watching only\n")
 	}
 
 	chGameMove := make(chan *googs.GameMove)
-
 	client.OnMove(gameID, func(m *googs.GameMove) {
 		chGameMove <- m
 	})
 
+	// Dynamic updated information
 	var gameMove *googs.GameMove
+	var gameState *googs.GameState
+
 	for {
-		fmt.Printf("Waiting for a game event...\n")
+		gameState, err = client.GameState(gameID)
+		if err != nil {
+			fmt.Printf("failed to get GameState: %v\n", err)
+			time.Sleep(time.Second * 2)
+			continue
+		}
+		drawBoard(gameState)
+
+		if gameState.Phase == "finished" {
+			fmt.Printf("game is finished: %s win by %s\n", game.PlayerByID(game.Winner).Username, gameState.Outcome)
+			break
+		}
+
+		currentPlayer := game.PlayerByID(gameState.PlayerToMove)
+		if currentPlayer.ID == client.UserID {
+			fmt.Printf("It's your turn\n")
+			// TODO: play a move, resign, pass
+		} else {
+			s := game.BlackPlayer()
+			if currentPlayer.ID == game.WhitePlayerID {
+				s = game.WhitePlayer()
+			}
+			fmt.Printf("Waiting for %s to move\n", s)
+		}
 
 		select {
 		case gameMove = <-chGameMove:
 			fmt.Printf("received game move %d: %v\n", gameMove.MoveNumber, gameMove.Move.OriginCoordinate)
-			g, err := client.GameState(gameID)
-			if err != nil {
-				fmt.Printf("failed to get GameState: %v\n", err)
-				return
-			}
-			drawBoard(g)
 
-		case gameData = <-chGameData:
-			fmt.Printf("received new game data: %s\n", gameData)
+		case game = <-chGame:
+			fmt.Printf("received new game data: %s\n", game)
 		}
 	}
 }

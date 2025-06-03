@@ -14,7 +14,7 @@ type User struct {
 	Country      string
 	Professional bool
 	About        string
-	Ranking      float64
+	Ranking      float32
 	Ratings      OGSRating
 	IsBot        bool   `json:"is_bot"`
 	IsFriend     bool   `json:"is_friend"`
@@ -22,10 +22,10 @@ type User struct {
 }
 
 type Glicko2 struct {
-	Deviation   float64
+	Deviation   float32
 	GamesPlayed int64 `json:"games_played"`
-	Rating      float64
-	Volatility  float64
+	Rating      float32
+	Volatility  float32
 }
 
 // OGSRating contains a `"version": 5` field besides the string keyed ratings,
@@ -67,7 +67,7 @@ func (t *Timestamp) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type GameData struct {
+type Game struct {
 	AgaHandicapScoring            bool  `json:"aga_handicap_scoring"`
 	AllowSelfCapture              bool  `json:"allow_self_capture"`
 	AllowSuperko                  bool  `json:"allow_superko"`
@@ -106,49 +106,86 @@ type GameData struct {
 	WhiteMustPassLast             bool        `json:"white_must_pass_last"`
 	WhitePlayerID                 int64       `json:"white_player_id"`
 	Width                         int
+	Winner                        int64 // Only when Phase == "finished"
 }
 
-func (g *GameData) String() string {
-	whosTurn := "black"
+func (g *Game) String() string {
+	whosTurn := "Black"
 	if g.WhitesTurn() {
-		whosTurn = "white"
+		whosTurn = "White"
 	}
-	return fmt.Sprintf("%-10d %-10q %s (B) vs %s (W), %d moves, %s to play",
+	return fmt.Sprintf("%-10d %-10q %s vs %s, %d moves, %s to play",
 		g.GameID,
 		g.GameName,
-		g.Players.Black.Username,
-		g.Players.White.Username,
+		g.BlackPlayer(),
+		g.WhitePlayer(),
 		len(g.Moves),
 		whosTurn)
 }
-func (g *GameData) URL() string {
+func (g *Game) URL() string {
 	return fmt.Sprintf("%s/game/%d", ogsBaseURL, g.GameID)
 }
 
-func (g *GameData) BoardSize() int {
+func (g *Game) BoardSize() int {
 	// XXX: also check Height
 	return g.Width
 }
 
-func (g *GameData) IsMyGame(myUserID int64) bool {
+func (g *Game) IsMyGame(myUserID int64) bool {
 	_, ok := g.PlayerPool[fmt.Sprintf("%d", myUserID)]
 	return ok
 }
 
-func (g *GameData) BlacksTurn() bool {
+func (g *Game) PlayerByID(userID int64) Player {
+	return g.PlayerPool[fmt.Sprintf("%d", userID)]
+}
+
+func (g *Game) BlackPlayer() string {
+	return "(B) " + g.Players.Black.String()
+}
+
+func (g *Game) WhitePlayer() string {
+	return "(W) " + g.Players.White.String()
+}
+
+func (g *Game) CurrentPlayer() string {
+	if g.Clock.CurrentPlayerID == g.Players.Black.ID {
+		return g.BlackPlayer()
+	}
+	return g.WhitePlayer()
+}
+
+func (g *Game) BlacksTurn() bool {
 	return g.Clock.CurrentPlayerID == g.Players.Black.ID
 }
 
-func (g *GameData) WhitesTurn() bool {
+func (g *Game) WhitesTurn() bool {
 	return g.Clock.CurrentPlayerID == g.Players.White.ID
 }
 
-// Player ontains basic user information as part of GameData
+// Player ontains basic user information as part of Game
 type Player struct {
 	ID           int64
 	Username     string
 	Professional bool
-	Rank         float64
+	Rank         float32
+}
+
+func (p *Player) String() string {
+	return p.Username + "[" + p.Ranking() + "]"
+}
+
+// Ref: https://github.com/online-go/goban/blob/9d191bb385e475636a3883e0d1e79687beb9576c/src/engine/GobanEngine.ts#L2094C1-L2107C1
+func (p *Player) Ranking() string {
+	if p.Rank >= 1037 {
+		return fmt.Sprintf("%.1fp", p.Rank-1036)
+	} else if p.Rank >= 30 {
+		return fmt.Sprintf("%.1fd", p.Rank-29)
+	} else if p.Rank >= 1 {
+		return fmt.Sprintf("%.1fk", 30-p.Rank)
+	} else {
+		return "?"
+	}
 }
 
 // Clock struct
@@ -170,7 +207,7 @@ type PlayerTime struct {
 	PeriodTime     int64   `json:"period_time"`
 	PeriodTimeLeft float64 `json:"period_time_left"`
 	Periods        int
-	ThinkingTime   int `json:"thinking_time"`
+	ThinkingTime   float64 `json:"thinking_time"`
 }
 
 // Players struct
@@ -232,26 +269,12 @@ func (m *Move) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type Game struct {
-	ID       int64
-	Name     string
-	GameData GameData // Embedded
-}
-
 // GameOverview is almost identical to Game but with a different json tag,
 // which is for decoding the /api/v1/overview reponse.
 type GameOverview struct {
-	ID       int64
-	Name     string
-	GameData GameData `json:"json"` // Embedded
-}
-
-func (a *Game) BlacksTurn() bool {
-	return a.GameData.BlacksTurn()
-}
-
-func (a *Game) WhitesTurn() bool {
-	return a.GameData.WhitesTurn()
+	ID   int64
+	Name string
+	Game `json:"json"` // Embedded
 }
 
 type GameMove struct {
@@ -261,9 +284,13 @@ type GameMove struct {
 }
 
 type GameState struct {
-	Board      [][]int
-	MoveNumber int              `json:"move_number"`
-	LastMove   OriginCoordinate `json:"last_move"`
+	Phase        string
+	MoveNumber   int              `json:"move_number"`
+	LastMove     OriginCoordinate `json:"last_move"`
+	PlayerToMove int64            `json:"player_to_move"`
+	Outcome      string
+	Board        [][]int
+	Removal      [][]int
 }
 
 func (g *GameState) BoardSize() int {
@@ -285,6 +312,9 @@ func (g *GameState) String() string {
 	a1, _ := g.LastMove.ToA1Coordinate(g.BoardSize())
 	return fmt.Sprintf("%d moves, last move: %s %s", g.MoveNumber, whoPlayed, a1)
 }
+
+// func (g *GameState) CurrentPlayer() string {
+// }
 
 type OriginCoordinate struct {
 	X int

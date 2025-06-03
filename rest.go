@@ -26,7 +26,7 @@ func (c *Client) AboutMe() (*User, error) {
 // NOTE: /me/games?ended__isnull=true can also return my active games.
 func (c *Client) Overview() (*Overview, error) {
 	res := Overview{}
-	if err := c.Get("/api/v1//ui/overview", nil, &res); err != nil {
+	if err := c.Get("/api/v1/ui/overview", nil, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -34,15 +34,16 @@ func (c *Client) Overview() (*Overview, error) {
 
 func (c *Client) Game(gameID int64) (*Game, error) {
 	res := Game{}
-	if err := c.Get(fmt.Sprintf("/api/v1/games/%d", gameID), nil, &res); err != nil {
+	if err := c.Get(fmt.Sprintf("/termination-api/game/%d", gameID), nil, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
+// termination-api/ has more information than /api/v1/.
 func (c *Client) GameState(gameID int64) (*GameState, error) {
 	res := GameState{}
-	if err := c.Get(fmt.Sprintf("/api/v1/games/%d/state", gameID), nil, &res); err != nil {
+	if err := c.Get(fmt.Sprintf("/termination-api/game/%d/state", gameID), nil, &res); err != nil {
 		return nil, err
 	}
 	if len(res.Board) == 0 || len(res.Board[0]) == 0 {
