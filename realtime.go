@@ -41,6 +41,7 @@ func (c *Client) Disconnect() {
 	}
 }
 
+// GameConnect starts watching gamedata and emit the connect message.
 // NOTE: To debug server reponse, start with a `map[string]any` callback
 // parameter to ensure that the response can always be decoded successfully.
 func (c *Client) GameConnect(gameID int64, fn func(*GameData)) error {
@@ -64,7 +65,7 @@ func (c *Client) GameDisconnect(gameID int64) error {
 	})
 }
 
-// PlayMove submits a move. ConnectGame must be called already..
+// GameMove submits a move (GameConnect must be called already).
 func (c *Client) GameMove(gameID int64, x, y int) error {
 	return c.socket.Emit("game/move", map[string]any{
 		"game_id":   gameID,

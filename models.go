@@ -121,6 +121,19 @@ func (g *GameData) String() string {
 		len(g.Moves),
 		whosTurn)
 }
+func (g *GameData) URL() string {
+	return fmt.Sprintf("%s/game/%d", ogsBaseURL, g.GameID)
+}
+
+func (g *GameData) BoardSize() int {
+	// XXX: also check Height
+	return g.Width
+}
+
+func (g *GameData) IsMyGame(myUserID int64) bool {
+	_, ok := g.PlayerPool[fmt.Sprintf("%d", myUserID)]
+	return ok
+}
 
 func (g *GameData) BlacksTurn() bool {
 	return g.Clock.CurrentPlayerID == g.Players.Black.ID

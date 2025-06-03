@@ -27,13 +27,11 @@ const usageText = `Usage:
 
 	read -s PASS                    # avoid log password into shell history
 	go run . -c clientID -u username -p "$PASS" login
-	cat secret.json			# secrets are stored after login once
+	cat secret.json                 # secrets are stored after login once
 
-	go run . overview		# show my active games
+	go run . overview               # show my active games
 	go run . board 123              # show game state and print board
-	go run . move 123 Q16           # submit a move at coordinate in "A1" format
-	go run . watch 123              # watch a game
-	go run . play 123               # connect to a game and play in GNU Go style
+	go run . connect 123            # connect to a game and watch or play
 	go run . rest /api/v1/players/1 # debug rest API (shows user profile)
 	go run . rest /api/v1/games/123 # show game information
 `
@@ -59,10 +57,8 @@ func main() {
 		overview()
 	case "board":
 		board(args...)
-	case "move":
-		move(args...)
-	case "watch":
-		watch(args...)
+	case "connect":
+		connect(args...)
 	case "rest":
 		rest(args...)
 	default:
@@ -99,12 +95,12 @@ func parseGameID(s string) (int64, error) {
 	return gameID, nil
 }
 
-func waitSignal[T any](signal <-chan T, seconds int) error {
-	timeout := time.Duration(seconds) * time.Second
+func waitChannel[T any](ch <-chan T, timeout time.Duration) (T, error) {
 	select {
-	case <-signal:
-		return nil
+	case res := <-ch:
+		return res, nil
 	case <-time.After(timeout):
-		return fmt.Errorf("timedout")
+		var zero T
+		return zero, fmt.Errorf("timed out waiting for channel of type %T", zero)
 	}
 }
