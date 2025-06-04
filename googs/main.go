@@ -17,21 +17,21 @@ var (
 	secretFile = flag.String("f", "secret.json", "file to write client info to and load from")
 )
 
-const usageText = `Usage:
+const usage = `Typical usage:
 
-	read -s PASS                    # avoid log password into shell history
-	go run . -c clientID -u username -p "$PASS" login
-	cat secret.json                 # secrets are stored after login once
+  read -s PASS                          # avoid log password into shell history
+  go run ./googs -c clientID -u username -p "$PASS" login
+  cat secret.json                       # secrets are stored after login once
 
-	go run . overview               # show my active games
-	go run . connect 123            # connect to a game to watch or play
-	go run . rest /api/v1/players/1 # debug rest API (shows user profile)
+  go run ./googs overview               # show my active games
+  go run ./googs connect 123            # connect to a game to watch or play
+  go run ./googs rest /api/v1/players/1 # debug rest API (shows user profile)
 `
 
 func main() {
 	flag.Parse()
 	if flag.NArg() < 1 {
-		log.Fatal(usageText)
+		log.Fatalf("Insufficient parameters, %s", usage)
 	}
 
 	cmd := flag.Args()[0]
@@ -47,7 +47,7 @@ func main() {
 	case "rest":
 		rest(args...)
 	default:
-		log.Fatal(usageText)
+		log.Fatalf("Invalid parameters, %s", usage)
 	}
 }
 
