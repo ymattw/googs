@@ -19,7 +19,7 @@ type Token struct {
 	ExpiresAt    time.Time `json:"expires_at,omitempty"`
 }
 
-// Auth holds authentication credentials for OGS realtime APIs.
+// Auth holds authentication credentials for OGS Realtime APIs.
 type Auth struct {
 	ChatAuth         string `json:"chat_auth"`
 	NotificationAuth string `json:"notification_auth"`

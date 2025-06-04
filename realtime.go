@@ -1,23 +1,27 @@
-// Refs:
+// OGS Realtime APIs implemented based on:
+//
 // - https://github.com/online-go/goban/blob/main/src/engine/protocol/ClientToServer.ts
 // - https://github.com/online-go/goban/blob/main/src/engine/protocol/ServerToClient.ts
+//
+// NOTE: So far only found github.com/graarh/golang-socketio works with the
+// `EIO=3` version. Verified that below socket.io packages do NOT work:
+//
+// - "github.com/maldikhan/go.socket.io/engine.io/v4/client"
+// - "github.com/googollee/go-socket.io" // v1.8.0-rc.1
 package googs
 
 import (
 	"fmt"
 
-	// NOTE: Verified not working client packages:
-	// socketio "github.com/maldikhan/go.socket.io/engine.io/v4/client"
-	// socketio "github.com/googollee/go-socket.io" // v1.8.0-rc.1
 	socketio "github.com/graarh/golang-socketio"
 	"github.com/graarh/golang-socketio/transport"
 )
 
 const (
-	// Note graarh/golang-socketio only works with EIO=3
 	realtimeURL = "wss://online-go.com/socket.io/?transport=websocket&EIO=3"
 )
 
+// This is automatically called when Client is authenticated.
 func (c *Client) connect() error {
 	conn, err := socketio.Dial(realtimeURL, transport.GetDefaultWebsocketTransport())
 	if err != nil {
@@ -42,9 +46,7 @@ func (c *Client) Disconnect() {
 	}
 }
 
-// GameConnect starts watching gamedata and emit the connect message.
-// NOTE: To debug server reponse, start with a `map[string]any` callback
-// parameter to ensure that the response can always be decoded successfully.
+// GameConnect starts watching gamedata event and emit the connect message.
 func (c *Client) GameConnect(gameID int64, fn func(*Game)) error {
 	if fn != nil {
 		callback := func(_ *socketio.Channel, g *Game) { fn(g) }
@@ -66,7 +68,7 @@ func (c *Client) GameDisconnect(gameID int64) error {
 	})
 }
 
-// GameMove submits a move (GameConnect must be called already).
+// GameMove submits a move (GameConnect must be called first).
 func (c *Client) GameMove(gameID int64, x, y int) error {
 	return c.socket.Emit("game/move", map[string]any{
 		"game_id":   gameID,
@@ -90,6 +92,7 @@ func (c *Client) OnClock(gameID int64, fn func(*Clock)) error {
 	return c.socket.On(fmt.Sprintf("game/%d/clock", gameID), callback)
 }
 
+// OnMove starts watching game move event.
 func (c *Client) OnMove(gameID int64, fn func(*GameMove)) error {
 	callback := func(_ *socketio.Channel, m *GameMove) { fn(m) }
 	return c.socket.On(fmt.Sprintf("game/%d/move", gameID), callback)

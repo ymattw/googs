@@ -1,4 +1,4 @@
-// Ref: https://apidocs.online-go.com/
+// OGS REST APIs implemented based on https://apidocs.online-go.com/.
 package googs
 
 import (
@@ -22,8 +22,7 @@ func (c *Client) AboutMe() (*User, error) {
 	return &res, nil
 }
 
-// Overview returns active games, open challenges etc.
-// NOTE: /me/games?ended__isnull=true can also return my active games.
+// Overview returns active games.
 func (c *Client) Overview() (*Overview, error) {
 	res := Overview{}
 	if err := c.Get("/api/v1/ui/overview", nil, &res); err != nil {
@@ -32,6 +31,7 @@ func (c *Client) Overview() (*Overview, error) {
 	return &res, nil
 }
 
+// Game fetches general game information, mostly static.
 func (c *Client) Game(gameID int64) (*Game, error) {
 	res := Game{}
 	if err := c.Get(fmt.Sprintf("/termination-api/game/%d", gameID), nil, &res); err != nil {
@@ -43,7 +43,7 @@ func (c *Client) Game(gameID int64) (*Game, error) {
 	return &res, nil
 }
 
-// termination-api/ has more information than /api/v1/.
+// GameState fetches current game information with board spanshot.
 func (c *Client) GameState(gameID int64) (*GameState, error) {
 	res := GameState{}
 	if err := c.Get(fmt.Sprintf("/termination-api/game/%d/state", gameID), nil, &res); err != nil {
@@ -58,6 +58,7 @@ func (c *Client) GameState(gameID int64) (*GameState, error) {
 	return &res, nil
 }
 
+// Get sends a GET request.
 func (c *Client) Get(uri string, params url.Values, ptr any) error {
 	if reflect.ValueOf(ptr).Kind() != reflect.Ptr {
 		return fmt.Errorf("ptr argument must be a pointer, got %T", ptr)
