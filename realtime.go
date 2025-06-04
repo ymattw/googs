@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	// Note graarh/golang-socketio only works with EIO=3
 	realtimeURL = "wss://online-go.com/socket.io/?transport=websocket&EIO=3"
 )
 

@@ -35,8 +35,14 @@ func connect(args ...string) {
 		os.Exit(1)
 	}
 
+	// Buffered channels for game events and game moves
 	chGame := make(chan *googs.Game, 10)
+	chGameMove := make(chan *googs.GameMove, 10)
+	defer close(chGame)
+	defer close(chGameMove)
+
 	if err := client.GameConnect(gameID, func(g *googs.Game) {
+		// fmt.Printf("Sending game data %s\n", g.Overview())
 		chGame <- g
 	}); err != nil {
 		fmt.Printf("%v\n", err)
@@ -49,8 +55,8 @@ func connect(args ...string) {
 		fmt.Printf("Not your game, watching only\n")
 	}
 
-	chGameMove := make(chan *googs.GameMove, 10)
 	client.OnMove(gameID, func(m *googs.GameMove) {
+		// fmt.Printf("Sending submitted move %v\n", m)
 		chGameMove <- m
 	})
 
@@ -89,7 +95,7 @@ func connect(args ...string) {
 			case <-chGameMove:
 			case game = <-chGame:
 			case <-time.After(500 * time.Millisecond):
-				fmt.Printf("Looks like last move wasn't submitted\n")
+				fmt.Printf("Last move wasn't submitted, illegal move? Try again\n")
 			}
 		} else { // blocking
 			select {

@@ -16,7 +16,7 @@ const (
 
 func (c *Client) AboutMe() (*User, error) {
 	res := User{}
-	if err := c.Get("/api/v1//me", nil, &res); err != nil {
+	if err := c.Get("/api/v1/me", nil, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
