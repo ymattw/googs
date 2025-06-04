@@ -10,6 +10,7 @@ import (
 	socketio "github.com/graarh/golang-socketio"
 )
 
+// Token represents an OAuth-compatible token structure.
 type Token struct {
 	AccessToken  string    `json:"access_token"`
 	TokenType    string    `json:"-"` // Ignore, always "Bearer"
@@ -18,12 +19,14 @@ type Token struct {
 	ExpiresAt    time.Time `json:"expires_at,omitempty"`
 }
 
+// Auth holds authentication credentials for OGS realtime APIs.
 type Auth struct {
 	ChatAuth         string `json:"chat_auth"`
 	NotificationAuth string `json:"notification_auth"`
 	UserJWT          string `json:"user_jwt"`
 }
 
+// Client represents an authenticated client with credentials and tokens.
 type Client struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret,omitempty"`
@@ -38,6 +41,8 @@ type Client struct {
 	socket *socketio.Client
 }
 
+// NewClient creates a Client instance with the given client ID and secret,
+// Login() should be called for authentication.
 func NewClient(clientID, clientSecret string) *Client {
 	return &Client{
 		ClientID:     clientID,
@@ -45,6 +50,9 @@ func NewClient(clientID, clientSecret string) *Client {
 	}
 }
 
+// Login authenticates the Client with the given username and password, also
+// establishes websocket connection to OGS. The Client instance is ready to use
+// right after.
 func (c *Client) Login(username, password string) error {
 	data := url.Values{}
 	data.Set("grant_type", "password")
@@ -66,6 +74,19 @@ func (c *Client) Login(username, password string) error {
 	return nil
 }
 
+// Save stores authenticated Client credentials into a file in JSON format.
+// This is recommended practice right after logged in via Login() once.
+func (c *Client) Save(secretFile string) error {
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(secretFile, data, 0600)
+}
+
+// Load stores Client credentials from a JSON file previously written via
+// Save(),  also establishes websocket connection to OGS so the Client is ready
+// to use right after.
 func LoadClient(secretFile string) (*Client, error) {
 	data, err := os.ReadFile(secretFile)
 	if err != nil {
@@ -98,14 +119,7 @@ func LoadClient(secretFile string) (*Client, error) {
 	return &c, nil
 }
 
-func (c *Client) Save(secretFile string) error {
-	data, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(secretFile, data, 0600)
-}
-
+// Identify verifies Client credentials and populate Username & UserID fields.
 func (c *Client) Identify() error {
 	me, err := c.AboutMe()
 	if err != nil {
@@ -153,6 +167,9 @@ func (c *Client) authenticate(data url.Values) error {
 	return nil
 }
 
+// MaybeRefresh validates the expiry of Client credentials and refresh
+// credentials on demand, a true value is returned when refresh happened
+// successfully. Save() is expected to persist the new credentials.
 func (c *Client) MaybeRefresh(deadline time.Duration) (bool, error) {
 	expiring := time.Now().Add(deadline).After(c.ExpiresAt)
 	if expiring || c.Identify() != nil {
