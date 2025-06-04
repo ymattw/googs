@@ -24,10 +24,8 @@ const usageText = `Usage:
 	cat secret.json                 # secrets are stored after login once
 
 	go run . overview               # show my active games
-	go run . board 123              # show game state and print board
 	go run . connect 123            # connect to a game to watch or play
 	go run . rest /api/v1/players/1 # debug rest API (shows user profile)
-	go run . rest /api/v1/games/123 # show game information
 `
 
 func main() {
@@ -44,8 +42,6 @@ func main() {
 		login()
 	case "overview":
 		overview()
-	case "board":
-		board(args...)
 	case "connect":
 		connect(args...)
 	case "rest":

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/ymattw/googs"
 )
@@ -71,24 +70,6 @@ func fgColor(colorCode int) string {
 
 func bgColor(colorCode int) string {
 	return fmt.Sprintf("\033[48;5;%dm", colorCode)
-}
-
-func board(args ...string) {
-	if len(args) != 1 {
-		log.Fatal("Syntax: board <gameID>")
-	}
-	gameID, err := parseGameID(args[0])
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client := loadClient()
-	g, err := client.GameState(gameID)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	drawBoard(g)
 }
 
 func colLabel(col int) rune {
