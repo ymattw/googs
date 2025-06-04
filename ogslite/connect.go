@@ -44,10 +44,9 @@ func connect(args ...string) {
 		os.Exit(1)
 	}
 	defer client.GameDisconnect(gameID)
-	fmt.Printf("Connected to game %s\n%s\n", game.URL(), game)
+	fmt.Printf("Connected to game %s\n%s\n", game.URL(), game.Overview())
 
-	isMyGame := game.IsMyGame(client.UserID)
-	if !isMyGame {
+	if !game.IsMyGame(client.UserID) {
 		fmt.Printf("Not your game, watching only\n")
 	}
 
@@ -56,8 +55,10 @@ func connect(args ...string) {
 		chGameMove <- m
 	})
 
-	// Dynamic updating information
+	// NOTE: `gameState` is updated on every move, `game` is only updated
+	// on game result change.
 	var gameState *googs.GameState
+	numMoves := -1
 
 	for {
 		gameState, err = client.GameState(gameID)
@@ -66,26 +67,32 @@ func connect(args ...string) {
 			time.Sleep(time.Second * 2)
 			continue
 		}
-		drawBoard(gameState)
-
+		if numMoves != gameState.MoveNumber {
+			numMoves = gameState.MoveNumber
+			fmt.Printf("\n")
+			drawBoard(gameState)
+			fmt.Printf("\n%s\n", game.State(gameState))
+		}
 		if gameState.Phase == "finished" {
-			fmt.Printf("game is finished: %s win by %s\n", game.PlayerByID(game.Winner).Username, gameState.Outcome)
+			fmt.Printf("\n%s\n", game.Result(gameState))
 			break
 		}
 
-		currentPlayer := game.PlayerByID(gameState.PlayerToMove)
+		currentPlayer := game.CurrentPlayer(gameState)
 		if currentPlayer.ID == client.UserID {
-			fmt.Printf("It's your turn\n")
-			playMove(client, gameID)
+			for {
+				if err := playMove(client, gameID); err != nil {
+					fmt.Printf("Failed to submit move: %v\n", err)
+				}
+				break
+			}
 			select {
 			case <-chGameMove:
 			case game = <-chGame:
 			case <-time.After(500 * time.Millisecond):
 				fmt.Printf("Looks like last move wasn't submitted\n")
 			}
-			continue
 		} else { // blocking
-			fmt.Printf("Waiting for %s to move\n", gameState.CurrentPlayer(game))
 			select {
 			case <-chGameMove:
 			case game = <-chGame:
@@ -94,25 +101,25 @@ func connect(args ...string) {
 	}
 }
 
-func playMove(client *googs.Client, gameID int64) {
-	for {
-		fmt.Printf(`My turn (Enter a coordinate in "A1" format, "pass" or "resign"):` + "\n> ")
-		reader := bufio.NewReader(os.Stdin)
-		cmd, _ := reader.ReadString('\n')
-		cmd = strings.TrimSpace(strings.ToUpper(cmd))
+func playMove(client *googs.Client, gameID int64) error {
+	fmt.Printf(`Your turn. Enter a coordinate in "A1" format, "pass" or "resign":` + "\n> ")
+	reader := bufio.NewReader(os.Stdin)
+	cmd, _ := reader.ReadString('\n')
+	cmd = strings.TrimSpace(strings.ToUpper(cmd))
 
-		switch cmd {
-		case "PASS":
-			// TODO
-			fmt.Println("PASS")
-		case "RESIGN":
-			client.GameResign(gameID)
-		default:
-			x, y, err := a1ToOrigin(19, cmd)
-			if err == nil {
-				client.GameMove(gameID, x, y)
-			}
+	switch cmd {
+	case "PASS":
+		// TODO
+		fmt.Println("PASS")
+		return nil
+	case "RESIGN":
+		return client.GameResign(gameID)
+	default:
+		x, y, err := a1ToOrigin(19, cmd)
+		if err != nil {
+			return err
 		}
+		return client.GameMove(gameID, x, y)
 	}
 }
 

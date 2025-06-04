@@ -106,15 +106,15 @@ type Game struct {
 	WhiteMustPassLast             bool        `json:"white_must_pass_last"`
 	WhitePlayerID                 int64       `json:"white_player_id"`
 	Width                         int
-	Winner                        int64 // Only when Phase == "finished"
+	WinnerID                      int64 `json:"winner"` // Only when Phase == "finished"
 }
 
-func (g *Game) String() string {
+func (g *Game) Overview() string {
 	whosTurn := "Black"
-	if g.WhitesTurn() {
+	if g.Clock.CurrentPlayerID == g.Players.White.ID {
 		whosTurn = "White"
 	}
-	return fmt.Sprintf("%-10d %-10q %s vs %s, %d moves, %s to play",
+	return fmt.Sprintf("%10d %-10q %s vs %s, %d moves, %s to play",
 		g.GameID,
 		g.GameName,
 		g.BlackPlayer(),
@@ -122,13 +122,13 @@ func (g *Game) String() string {
 		len(g.Moves),
 		whosTurn)
 }
+
 func (g *Game) URL() string {
 	return fmt.Sprintf("%s/game/%d", ogsBaseURL, g.GameID)
 }
 
 func (g *Game) BoardSize() int {
-	// XXX: also check Height
-	return g.Width
+	return g.Height // client.Game() validates
 }
 
 func (g *Game) IsMyGame(myUserID int64) bool {
@@ -147,12 +147,39 @@ func (g *Game) WhitePlayer() string {
 	return "(W) " + g.Players.White.String()
 }
 
-func (g *Game) BlacksTurn() bool {
-	return g.Clock.CurrentPlayerID == g.Players.Black.ID
+func (g *Game) CurrentPlayer(state *GameState) Player {
+	return g.PlayerByID(state.PlayerToMove)
 }
 
-func (g *Game) WhitesTurn() bool {
-	return g.Clock.CurrentPlayerID == g.Players.White.ID
+func (g *Game) Result(state *GameState) string {
+	if g.Phase != "finished" {
+		return ""
+	}
+	winner := g.BlackPlayer()
+	if g.WinnerID == g.WhitePlayerID {
+		winner = g.WhitePlayer()
+	}
+	return fmt.Sprintf("%s won by %s", winner, state.Outcome)
+}
+
+func (g *Game) State(state *GameState) string {
+	if state.Phase == "finished" {
+		return "Game has finished, " + g.Result(state)
+	}
+
+	whoPlayed := "Black"
+	turn := "White"
+	if state.PlayerToMove == g.BlackPlayerID {
+		whoPlayed = "White"
+		turn = "Black"
+	}
+
+	if state.LastMove.IsPass() {
+		return fmt.Sprintf("%d moves, %s passed, %s's turn", state.MoveNumber, whoPlayed, turn)
+	}
+
+	a1, _ := state.LastMove.ToA1Coordinate(g.BoardSize())
+	return fmt.Sprintf("%d moves, %s played %s, %s's turn", state.MoveNumber, whoPlayed, a1, turn)
 }
 
 // Player ontains basic user information as part of Game
@@ -286,31 +313,7 @@ type GameState struct {
 }
 
 func (g *GameState) BoardSize() int {
-	return len(g.Board) // GameState() already validated
-}
-
-func (g *GameState) String() string {
-	if g.LastMove.IsPass() {
-		return fmt.Sprintf("%d moves, last move was a pass", g.MoveNumber)
-	}
-
-	whoPlayed := ""
-	switch g.Board[g.LastMove.Y][g.LastMove.X] {
-	case 1:
-		whoPlayed = "black"
-	case 2:
-		whoPlayed = "white"
-	}
-	a1, _ := g.LastMove.ToA1Coordinate(g.BoardSize())
-	return fmt.Sprintf("%d moves, last move: %s %s", g.MoveNumber, whoPlayed, a1)
-}
-
-// TODO: whos' turn, who played
-func (g *GameState) CurrentPlayer(game *Game) string {
-	if g.PlayerToMove == game.BlackPlayerID {
-		return game.BlackPlayer()
-	}
-	return game.WhitePlayer()
+	return len(g.Board) // client.GameState() validates
 }
 
 type OriginCoordinate struct {

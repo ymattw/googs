@@ -37,6 +37,9 @@ func (c *Client) Game(gameID int64) (*Game, error) {
 	if err := c.Get(fmt.Sprintf("/termination-api/game/%d", gameID), nil, &res); err != nil {
 		return nil, err
 	}
+	if res.Height <= 0 || res.Width <= 0 || res.Height != res.Width {
+		return nil, fmt.Errorf("invalid Board dimension %d x %d", res.Width, res.Height)
+	}
 	return &res, nil
 }
 

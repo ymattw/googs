@@ -129,5 +129,5 @@ func drawBoard(g *googs.GameState) {
 	for c := 0; c < size; c++ {
 		fmt.Printf("%c", colLabel(c))
 	}
-	fmt.Printf("\n\n%s\n\n", g)
+	fmt.Printf("\n")
 }

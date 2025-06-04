@@ -19,6 +19,6 @@ func overview() {
 		if a.Clock.CurrentPlayerID == client.UserID {
 			prefix = "*" // my turn
 		}
-		fmt.Printf("%s %s\n", prefix, &a.Game)
+		fmt.Printf("%s %s\n", prefix, a.Overview())
 	}
 }
