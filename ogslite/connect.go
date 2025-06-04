@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -81,7 +80,7 @@ func connect(args ...string) {
 		currentPlayer := game.CurrentPlayer(gameState)
 		if currentPlayer.ID == client.UserID {
 			for {
-				if err := playMove(client, gameID); err != nil {
+				if err := playMove(client, gameID, game.BoardSize()); err != nil {
 					fmt.Printf("Failed to submit move: %v\n", err)
 				}
 				break
@@ -101,52 +100,26 @@ func connect(args ...string) {
 	}
 }
 
-func playMove(client *googs.Client, gameID int64) error {
+func playMove(client *googs.Client, gameID int64, boardSize int) error {
 	fmt.Printf(`Your turn. Enter a coordinate in "A1" format, "pass" or "resign":` + "\n> ")
 	reader := bufio.NewReader(os.Stdin)
-	cmd, _ := reader.ReadString('\n')
-	cmd = strings.TrimSpace(strings.ToUpper(cmd))
+	op, _ := reader.ReadString('\n')
+	op = strings.TrimSpace(strings.ToUpper(op))
 
-	switch cmd {
+	switch op {
 	case "PASS":
 		return client.PassTurn(gameID)
 	case "RESIGN":
 		return client.GameResign(gameID)
 	default:
-		x, y, err := a1ToOrigin(19, cmd)
+		a1, err := googs.NewA1Coordinate(op)
 		if err != nil {
 			return err
 		}
-		return client.GameMove(gameID, x, y)
+		coord, err := a1.ToOriginCoordinate(boardSize)
+		if err != nil {
+			return err
+		}
+		return client.GameMove(gameID, coord.X, coord.Y)
 	}
-}
-
-func a1ToOrigin(size int, coord string) (int, int, error) {
-	if len(coord) < 2 {
-		return -1, -1, fmt.Errorf("invalid coordinate string %q", coord)
-	}
-
-	col := rune(strings.ToUpper(coord)[0])
-	row := coord[1:]
-
-	var x int
-	if col >= 'A' && col <= 'H' {
-		x = int(col - 'A')
-	} else if col >= 'J' && col <= 'T' { // Account for skipped 'I'
-		x = int(col - 'A' - 1)
-	} else {
-		return -1, -1, fmt.Errorf("invalid column letter '%c' in coordinate %q: must be A-H or J-T (or a-h or j-t)", col, coord)
-	}
-
-	rowNum, err := strconv.Atoi(row)
-	if err != nil {
-		return -1, -1, fmt.Errorf("invalid row number format in coordinate %q: %w", coord, err)
-	}
-	y := size - rowNum
-
-	if x < 0 || x >= size || y < 0 || y >= size {
-		return 0, 0, fmt.Errorf("converted coordinates [%d, %d] from %q are out of board bounds (0-%d)", x, y, coord, size-1)
-	}
-
-	return x, y, nil
 }

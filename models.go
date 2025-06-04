@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -331,18 +332,17 @@ func (c OriginCoordinate) IsPass() bool {
 	return c.X == -1 || c.Y == -1
 }
 
-func (c OriginCoordinate) ToA1Coordinate(boardSize int) (A1Coordinate, error) {
-	res := A1Coordinate{}
+func (c OriginCoordinate) ToA1Coordinate(boardSize int) (*A1Coordinate, error) {
 	if c.X < 0 || c.X >= boardSize || c.Y < 0 || c.Y >= boardSize {
-		return res, fmt.Errorf("OriginCoordinate %s is out of board bounds [0-%d]", c, boardSize-1)
+		return nil, fmt.Errorf("OriginCoordinate %s is out of board bounds [0-%d]", c, boardSize-1)
 	}
 
-	res.Col = 'A' + rune(c.X)
+	col := 'A' + rune(c.X)
 	if c.X >= 8 { // Skip 'I'
-		res.Col += 1
+		col += 1
 	}
-	res.Row = boardSize - c.Y // Reverse counting
-	return res, nil
+	row := boardSize - c.Y // Reverse counting
+	return &A1Coordinate{Col: col, Row: row}, nil
 }
 
 type A1Coordinate struct {
@@ -350,12 +350,29 @@ type A1Coordinate struct {
 	Row int  // 1, 2, ...
 }
 
+func NewA1Coordinate(coord string) (*A1Coordinate, error) {
+	if len(coord) < 2 {
+		return nil, fmt.Errorf("invalid coordinate string %q", coord)
+	}
+
+	col := rune(strings.ToUpper(coord)[0])
+	row := coord[1:]
+
+	if col < 'A' || col > 'Z' || col == 'I' {
+		return nil, fmt.Errorf("invalid column letter '%c' in coordinate %q: must be A-H or J-Z (or a-h or j-z)", col, coord)
+	}
+	rowNum, err := strconv.Atoi(row)
+	if err != nil || rowNum <= 0 || rowNum > 25 {
+		return nil, fmt.Errorf("invalid row number format in coordinate %q: %w", coord, err)
+	}
+	return &A1Coordinate{Col: col, Row: rowNum}, nil
+}
+
 func (c A1Coordinate) String() string {
 	return fmt.Sprintf("%c%d", c.Col, c.Row)
 }
 
-func (c A1Coordinate) ToOriginCoordinate(boardSize int) (OriginCoordinate, error) {
-	res := OriginCoordinate{}
+func (c A1Coordinate) ToOriginCoordinate(boardSize int) (*OriginCoordinate, error) {
 	col := c.Col
 	if col >= 'a' && col <= 'z' {
 		col -= 'a' - 'A' // to upper case
@@ -367,12 +384,12 @@ func (c A1Coordinate) ToOriginCoordinate(boardSize int) (OriginCoordinate, error
 	} else if col >= 'J' && col <= 'T' { // Account for skipped 'I'
 		x = int(col - 'A' - 1)
 	} else {
-		return res, fmt.Errorf("invalid column letter '%c' in A1Coordinate %q: must be A-H or J-T (or a-h or j-t)", col, c)
+		return nil, fmt.Errorf("invalid column letter '%c' in A1Coordinate %q: must be A-H or J-T (or a-h or j-t)", col, c)
 	}
 
 	y := boardSize - c.Row
 	if x < 0 || x >= boardSize || y < 0 || y >= boardSize {
-		return res, fmt.Errorf("converted OriginCoordinate %s from %q are out of board bounds [0-%d]", res, c, boardSize-1)
+		return nil, fmt.Errorf("coordinate %q is out of board bounds [0-%d]", c, boardSize-1)
 	}
-	return res, nil
+	return &OriginCoordinate{X: x, Y: y}, nil
 }
