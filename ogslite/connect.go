@@ -36,7 +36,7 @@ func connect(args ...string) {
 		os.Exit(1)
 	}
 
-	chGame := make(chan *googs.Game)
+	chGame := make(chan *googs.Game, 10)
 	if err := client.GameConnect(gameID, func(g *googs.Game) {
 		chGame <- g
 	}); err != nil {
@@ -51,13 +51,12 @@ func connect(args ...string) {
 		fmt.Printf("Not your game, watching only\n")
 	}
 
-	chGameMove := make(chan *googs.GameMove)
+	chGameMove := make(chan *googs.GameMove, 10)
 	client.OnMove(gameID, func(m *googs.GameMove) {
 		chGameMove <- m
 	})
 
-	// Dynamic updated information
-	var gameMove *googs.GameMove
+	// Dynamic updating information
 	var gameState *googs.GameState
 
 	for {
@@ -78,28 +77,26 @@ func connect(args ...string) {
 		if currentPlayer.ID == client.UserID {
 			fmt.Printf("It's your turn\n")
 			playMove(client, gameID)
-		} else {
-			s := game.BlackPlayer()
-			if currentPlayer.ID == game.WhitePlayerID {
-				s = game.WhitePlayer()
+			select {
+			case <-chGameMove:
+			case game = <-chGame:
+			case <-time.After(500 * time.Millisecond):
+				fmt.Printf("Looks like last move wasn't submitted\n")
 			}
-			fmt.Printf("Waiting for %s to move\n", s)
-		}
-
-		select {
-		case gameMove = <-chGameMove:
-			fmt.Printf("received game move %d: %v\n", gameMove.MoveNumber, gameMove.Move.OriginCoordinate)
-		case game = <-chGame:
-			fmt.Printf("received new game data: %s\n", game)
-
-			// TODO: add a default case to avoid deadlock after failed playMove
+			continue
+		} else { // blocking
+			fmt.Printf("Waiting for %s to move\n", gameState.CurrentPlayer(game))
+			select {
+			case <-chGameMove:
+			case game = <-chGame:
+			}
 		}
 	}
 }
 
 func playMove(client *googs.Client, gameID int64) {
 	for {
-		fmt.Printf(`Enter "pass", "resign" or a coordinate in "A1" format` + "\n> ")
+		fmt.Printf(`My turn (Enter a coordinate in "A1" format, "pass" or "resign"):` + "\n> ")
 		reader := bufio.NewReader(os.Stdin)
 		cmd, _ := reader.ReadString('\n')
 		cmd = strings.TrimSpace(strings.ToUpper(cmd))
@@ -108,18 +105,12 @@ func playMove(client *googs.Client, gameID int64) {
 		case "PASS":
 			// TODO
 			fmt.Println("PASS")
-			return
 		case "RESIGN":
-			if client.GameResign(gameID) != nil {
-				return
-			}
+			client.GameResign(gameID)
 		default:
 			x, y, err := a1ToOrigin(19, cmd)
 			if err == nil {
 				client.GameMove(gameID, x, y)
-				fmt.Println("played a move!")
-				// XXX: async problem
-				return
 			}
 		}
 	}

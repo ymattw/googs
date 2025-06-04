@@ -132,8 +132,7 @@ func (g *Game) BoardSize() int {
 }
 
 func (g *Game) IsMyGame(myUserID int64) bool {
-	_, ok := g.PlayerPool[fmt.Sprintf("%d", myUserID)]
-	return ok
+	return g.PlayerPool[fmt.Sprintf("%d", myUserID)].ID == myUserID
 }
 
 func (g *Game) PlayerByID(userID int64) Player {
@@ -146,13 +145,6 @@ func (g *Game) BlackPlayer() string {
 
 func (g *Game) WhitePlayer() string {
 	return "(W) " + g.Players.White.String()
-}
-
-func (g *Game) CurrentPlayer() string {
-	if g.Clock.CurrentPlayerID == g.Players.Black.ID {
-		return g.BlackPlayer()
-	}
-	return g.WhitePlayer()
 }
 
 func (g *Game) BlacksTurn() bool {
@@ -313,8 +305,13 @@ func (g *GameState) String() string {
 	return fmt.Sprintf("%d moves, last move: %s %s", g.MoveNumber, whoPlayed, a1)
 }
 
-// func (g *GameState) CurrentPlayer() string {
-// }
+// TODO: whos' turn, who played
+func (g *GameState) CurrentPlayer(game *Game) string {
+	if g.PlayerToMove == game.BlackPlayerID {
+		return game.BlackPlayer()
+	}
+	return game.WhitePlayer()
+}
 
 type OriginCoordinate struct {
 	X int

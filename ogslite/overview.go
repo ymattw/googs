@@ -16,7 +16,7 @@ func overview() {
 	fmt.Printf("Total %d active games\n", len(v.ActiveGames))
 	for _, a := range v.ActiveGames {
 		prefix := " "
-		if a.Game.Clock.CurrentPlayerID == client.UserID {
+		if a.Clock.CurrentPlayerID == client.UserID {
 			prefix = "*" // my turn
 		}
 		fmt.Printf("%s %s\n", prefix, &a.Game)
