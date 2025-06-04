@@ -163,6 +163,9 @@ func (g *Game) Result(state *GameState) string {
 }
 
 func (g *Game) State(state *GameState) string {
+	if state.MoveNumber == 0 {
+		return fmt.Sprintf("Game ready, %s to start", g.BlackPlayer())
+	}
 	if state.Phase == "finished" {
 		return "Game has finished, " + g.Result(state)
 	}
@@ -173,7 +176,6 @@ func (g *Game) State(state *GameState) string {
 		whoPlayed = "White"
 		turn = "Black"
 	}
-
 	if state.LastMove.IsPass() {
 		return fmt.Sprintf("%d moves, %s passed, %s's turn", state.MoveNumber, whoPlayed, turn)
 	}
