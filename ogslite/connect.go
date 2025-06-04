@@ -109,9 +109,7 @@ func playMove(client *googs.Client, gameID int64) error {
 
 	switch cmd {
 	case "PASS":
-		// TODO
-		fmt.Println("PASS")
-		return nil
+		return client.PassTurn(gameID)
 	case "RESIGN":
 		return client.GameResign(gameID)
 	default:

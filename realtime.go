@@ -74,6 +74,10 @@ func (c *Client) GameMove(gameID int64, x, y int) error {
 	})
 }
 
+func (c *Client) PassTurn(gameID int64) error {
+	return c.GameMove(gameID, -1, -1)
+}
+
 func (c *Client) GameResign(gameID int64) error {
 	return c.socket.Emit("game/resign", map[string]any{
 		"game_id": gameID,
