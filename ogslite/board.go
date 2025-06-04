@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"log"
 
 	"github.com/ymattw/googs"
 )
@@ -16,8 +16,8 @@ const (
 	// 256-color codes https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
 	GridColor               = 238 // Grid foreground: light grey
 	BoardColor              = 243 // Board background: dark grey
-	BlackLastMoveBackground = 1
-	WhiteLastMoveBackground = 1
+	BlackLastMoveBackground = 1   // Red
+	WhiteLastMoveBackground = 1   // Red
 )
 
 type Stone int
@@ -75,20 +75,17 @@ func bgColor(colorCode int) string {
 
 func board(args ...string) {
 	if len(args) != 1 {
-		fmt.Printf("Syntax: board <gameID>\n")
-		os.Exit(1)
+		log.Fatal("Syntax: board <gameID>")
 	}
 	gameID, err := parseGameID(args[0])
 	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	client := loadClient()
 	g, err := client.GameState(gameID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	drawBoard(g)

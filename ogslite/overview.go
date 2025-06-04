@@ -2,15 +2,14 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"log"
 )
 
 func overview() {
 	client := loadClient()
 	v, err := client.Overview()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	fmt.Printf("Total %d active games\n", len(v.ActiveGames))

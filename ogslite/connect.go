@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,13 +14,11 @@ import (
 
 func connect(args ...string) {
 	if len(args) != 1 {
-		fmt.Printf("Syntax: play <gameID>\n")
-		os.Exit(1)
+		log.Fatal("Syntax: play <gameID>")
 	}
 	gameID, err := parseGameID(args[0])
 	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	client := loadClient()
@@ -26,13 +26,11 @@ func connect(args ...string) {
 	// Fetch current game information once
 	game, err := client.Game(gameID)
 	if err != nil {
-		fmt.Printf("failed to get game information %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Failed to get game information %v", err)
 	}
 	// TODO: research how is the Game struct different for Rengo games
 	if game.Rengo {
-		fmt.Printf("Rengo game is not supported yet\n")
-		os.Exit(1)
+		log.Fatal("Rengo game is not supported yet")
 	}
 
 	// Buffered channels for game events and game moves
@@ -42,21 +40,20 @@ func connect(args ...string) {
 	defer close(chGameMove)
 
 	if err := client.GameConnect(gameID, func(g *googs.Game) {
-		// fmt.Printf("Sending game data %s\n", g.Overview())
+		// log.Printf("Sending game data %s", g.Overview())
 		chGame <- g
 	}); err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	defer client.GameDisconnect(gameID)
-	fmt.Printf("Connected to game %s\n%s\n", game.URL(), game.Overview())
+	log.Printf("Connected to game %s\n%s", game.URL(), game.Overview())
 
 	if !game.IsMyGame(client.UserID) {
-		fmt.Printf("Not your game, watching only\n")
+		log.Printf("Not your game, watching only")
 	}
 
 	client.OnMove(gameID, func(m *googs.GameMove) {
-		// fmt.Printf("Sending submitted move %v\n", m)
+		// log.Printf("Sending submitted move %v", m)
 		chGameMove <- m
 	})
 
@@ -68,26 +65,24 @@ func connect(args ...string) {
 	for {
 		gameState, err = client.GameState(gameID)
 		if err != nil {
-			fmt.Printf("failed to get GameState: %v\n", err)
+			log.Printf("failed to get GameState: %v", err)
 			time.Sleep(time.Second * 2)
 			continue
 		}
 		if numMoves != gameState.MoveNumber {
 			numMoves = gameState.MoveNumber
-			fmt.Printf("\n")
 			drawBoard(gameState)
-			fmt.Printf("\n%s\n", game.State(gameState))
+			log.Printf("%s", game.Status(gameState))
 		}
 		if gameState.Phase == "finished" {
-			fmt.Printf("\n%s\n", game.Result(gameState))
+			log.Printf("%s", game.Result(gameState))
 			break
 		}
 
-		currentPlayer := game.CurrentPlayer(gameState)
-		if currentPlayer.ID == client.UserID {
+		if gameState.PlayerToMove == client.UserID {
 			for {
 				if err := playMove(client, gameID, game.BoardSize()); err != nil {
-					fmt.Printf("Failed to submit move: %v\n", err)
+					log.Printf("Failed to submit move: %v", err)
 				}
 				break
 			}
@@ -95,7 +90,7 @@ func connect(args ...string) {
 			case <-chGameMove:
 			case game = <-chGame:
 			case <-time.After(500 * time.Millisecond):
-				fmt.Printf("Last move wasn't submitted, illegal move? Try again\n")
+				log.Printf("Last move wasn't submitted, illegal move? Try again")
 			}
 		} else { // blocking
 			select {
@@ -107,7 +102,8 @@ func connect(args ...string) {
 }
 
 func playMove(client *googs.Client, gameID int64, boardSize int) error {
-	fmt.Printf(`Your turn. Enter a coordinate in "A1" format, "pass" or "resign":` + "\n> ")
+	log.Printf(`Your turn. Enter a coordinate in "A1" format, "pass" or "resign"`)
+	fmt.Print("> ")
 	reader := bufio.NewReader(os.Stdin)
 	op, _ := reader.ReadString('\n')
 	op = strings.TrimSpace(strings.ToUpper(op))
@@ -128,4 +124,15 @@ func playMove(client *googs.Client, gameID int64, boardSize int) error {
 		}
 		return client.GameMove(gameID, coord.X, coord.Y)
 	}
+}
+
+// Can also take a URL like https://online-go.com/game/123
+func parseGameID(s string) (int64, error) {
+	parts := strings.Split("/"+s, "/")
+	last := parts[len(parts)-1]
+	gameID, err := strconv.ParseInt(last, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to extract gameID from %q: %w", s, err)
+	}
+	return gameID, nil
 }

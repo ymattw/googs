@@ -7,14 +7,8 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"flag"
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
-	"time"
+	"log"
 
 	"github.com/ymattw/googs"
 )
@@ -31,20 +25,15 @@ const usageText = `Usage:
 
 	go run . overview               # show my active games
 	go run . board 123              # show game state and print board
-	go run . connect 123            # connect to a game and watch or play
+	go run . connect 123            # connect to a game to watch or play
 	go run . rest /api/v1/players/1 # debug rest API (shows user profile)
 	go run . rest /api/v1/games/123 # show game information
 `
 
-func usage() {
-	fmt.Printf(usageText + "\n")
-	os.Exit(1)
-}
-
 func main() {
 	flag.Parse()
 	if flag.NArg() < 1 {
-		usage()
+		log.Fatal(usageText)
 	}
 
 	cmd := flag.Args()[0]
@@ -62,45 +51,14 @@ func main() {
 	case "rest":
 		rest(args...)
 	default:
-		usage()
+		log.Fatal(usageText)
 	}
 }
 
 func loadClient() *googs.Client {
 	client, err := googs.LoadClient(*secretFile)
 	if err != nil {
-		fmt.Printf("failed to load client from file: %v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	return client
-}
-
-func formatObject(obj any) string {
-	var out bytes.Buffer
-	data, _ := json.Marshal(obj)
-	if json.Indent(&out, []byte(data), "", "  ") != nil {
-		return ""
-	}
-	return out.String()
-}
-
-// Can also take a URL like https://online-go.com/game/123
-func parseGameID(s string) (int64, error) {
-	parts := strings.Split("/"+s, "/")
-	last := parts[len(parts)-1]
-	gameID, err := strconv.ParseInt(last, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to extract gameID from %q: %w", s, err)
-	}
-	return gameID, nil
-}
-
-func waitChannel[T any](ch <-chan T, timeout time.Duration) (T, error) {
-	select {
-	case res := <-ch:
-		return res, nil
-	case <-time.After(timeout):
-		var zero T
-		return zero, fmt.Errorf("timed out waiting for channel of type %T", zero)
-	}
 }

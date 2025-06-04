@@ -1,14 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"os"
+	"log"
 )
 
 func rest(args ...string) {
 	if len(args) != 1 {
-		fmt.Printf("Syntax: rest <api>\n")
-		os.Exit(1)
+		log.Fatal("Syntax: rest <api>")
 	}
 	api := args[0]
 
@@ -16,8 +17,16 @@ func rest(args ...string) {
 	res := make(map[string]any)
 	err := client.Get(api, nil, &res)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	fmt.Printf("%s\n", formatObject(res))
+}
+
+func formatObject(obj any) string {
+	var out bytes.Buffer
+	data, _ := json.Marshal(obj)
+	if json.Indent(&out, []byte(data), "", "  ") != nil {
+		return ""
+	}
+	return out.String()
 }

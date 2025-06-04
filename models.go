@@ -148,10 +148,6 @@ func (g *Game) WhitePlayer() string {
 	return "(W) " + g.Players.White.String()
 }
 
-func (g *Game) CurrentPlayer(state *GameState) Player {
-	return g.PlayerByID(state.PlayerToMove)
-}
-
 func (g *Game) Result(state *GameState) string {
 	if g.Phase != "finished" {
 		return ""
@@ -163,7 +159,7 @@ func (g *Game) Result(state *GameState) string {
 	return fmt.Sprintf("%s won by %s", winner, state.Outcome)
 }
 
-func (g *Game) State(state *GameState) string {
+func (g *Game) Status(state *GameState) string {
 	if state.MoveNumber == 0 {
 		return fmt.Sprintf("Game ready, %s to start", g.BlackPlayer())
 	}
