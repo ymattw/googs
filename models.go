@@ -22,6 +22,7 @@ type User struct {
 	UIClass      string `json:"ui_class"`
 }
 
+// Glicko2 contains Glicko2 ratings of a user.
 type Glicko2 struct {
 	Deviation   float32
 	GamesPlayed int64 `json:"games_played"`
@@ -29,10 +30,11 @@ type Glicko2 struct {
 	Volatility  float32
 }
 
-// OGSRating contains a `"version": 5` field besides the string keyed ratings,
-// so needs a customized decoder.
+// OGSRating is a map of Glicko2 ratings with keys like "overall", "19x19" etc.
 type OGSRating map[string]Glicko2
 
+// UnmarshalJSON is a customized JSON decoder for properly handling the
+// `"version": 5` field in the JSON returned by OGS server.
 func (r *OGSRating) UnmarshalJSON(data []byte) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -51,10 +53,13 @@ func (r *OGSRating) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Timestamp is a customized Time struct.
 type Timestamp struct {
 	time.Time
 }
 
+// UnmarshalJSON is a customized JSON decoder for properly handling timestamps
+// represented in both seconds or miliseconds.
 func (t *Timestamp) UnmarshalJSON(b []byte) error {
 	ts, err := strconv.ParseInt(string(b), 10, 64)
 	if err != nil {
@@ -181,7 +186,7 @@ func (g *Game) Status(state *GameState) string {
 	return fmt.Sprintf("%d moves, %s played %s, %s's turn", state.MoveNumber, whoPlayed, a1, turn)
 }
 
-// Player ontains basic user information as part of Game
+// Player ontains basic user information as part of Game.
 type Player struct {
 	ID           int64
 	Username     string
@@ -193,7 +198,9 @@ func (p *Player) String() string {
 	return p.Username + "[" + p.Ranking() + "]"
 }
 
-// Ref: https://github.com/online-go/goban/blob/9d191bb385e475636a3883e0d1e79687beb9576c/src/engine/GobanEngine.ts#L2094C1-L2107C1
+// Ranking returns the player's OGS ranking as a string in notation like "1p",
+// "2.1d", "13.2k" etc. The conversion logic is based on
+// https://github.com/online-go/goban/blob/9d191bb385e475636a3883e0d1e79687beb9576c/src/engine/GobanEngine.ts#L2094C1-L2107C1
 func (p *Player) Ranking() string {
 	if p.Rank >= 1037 {
 		return fmt.Sprintf("%.fp", p.Rank-1036)
@@ -206,7 +213,6 @@ func (p *Player) Ranking() string {
 	}
 }
 
-// Clock struct
 type Clock struct {
 	BlackPlayerID   int64      `json:"black_player_id"`
 	BlackTime       PlayerTime `json:"black_time"`
@@ -220,7 +226,6 @@ type Clock struct {
 	Now             Timestamp  // Only for OnClock
 }
 
-// PlayerTime struct
 type PlayerTime struct {
 	PeriodTime     int64   `json:"period_time"`
 	PeriodTimeLeft float64 `json:"period_time_left"`
@@ -228,13 +233,11 @@ type PlayerTime struct {
 	ThinkingTime   float64 `json:"thinking_time"`
 }
 
-// Players struct
 type Players struct {
 	Black Player
 	White Player
 }
 
-// TimeControl struct
 type TimeControl struct {
 	MainTime        int   `json:"main_time"`
 	PauseOnWeekends bool  `json:"pause_on_weekends"`
@@ -247,17 +250,19 @@ type TimeControl struct {
 	TimeControl     string `json:"time_control"`
 }
 
+// Overview contains the overview as what users see after logged into OGS.
 type Overview struct {
 	ActiveGames []GameOverview `json:"active_games"`
 }
 
-// Move is a list of [x, y, TimeDelta] but in different types, so needs
-// a customized decoder.
+// Move is a list of [x, y, TimeDelta] values.
 type Move struct {
 	OriginCoordinate
 	TimeDelta float64
 }
 
+// UnmarshalJSON is a customized JSON decoder for properly handling the
+// different types in the Move struct.
 func (m *Move) UnmarshalJSON(data []byte) error {
 	var raw []json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -302,19 +307,31 @@ type GameMove struct {
 }
 
 type GameState struct {
-	Phase        string
-	MoveNumber   int              `json:"move_number"`
-	LastMove     OriginCoordinate `json:"last_move"`
-	PlayerToMove int64            `json:"player_to_move"`
-	Outcome      string
-	Board        [][]int
-	Removal      [][]int
+	// Phase has value "play", "finished" etc.
+	Phase string
+
+	// Number of moves already played.
+	MoveNumber int `json:"move_number"`
+
+	// Last move, coordinate [-1, -1] indicates a pass
+	LastMove OriginCoordinate `json:"last_move"`
+
+	// User ID of the player in turn.
+	PlayerToMove int64 `json:"player_to_move"`
+
+	// Game result, "Resignation", "2.5 points" etc.
+	Outcome string
+
+	// The 2-D array with value 0=Empty, 1=Black, 2=White
+	Board   [][]int
+	Removal [][]int
 }
 
 func (g *GameState) BoardSize() int {
 	return len(g.Board) // client.GameState() validates
 }
 
+// OriginCoordinate is zero base coordinate.
 type OriginCoordinate struct {
 	X int
 	Y int
@@ -341,11 +358,14 @@ func (c OriginCoordinate) ToA1Coordinate(boardSize int) (*A1Coordinate, error) {
 	return &A1Coordinate{Col: col, Row: row}, nil
 }
 
+// A1Coordinate is coordinate represented in format "A1", note letter 'I' is
+// skipped.
 type A1Coordinate struct {
 	Col rune // 'A', 'B', ... (skip 'I')
 	Row int  // 1, 2, ...
 }
 
+// A1Coordinate creates an instance from a coordinate string in format "A1".
 func NewA1Coordinate(coord string) (*A1Coordinate, error) {
 	if len(coord) < 2 {
 		return nil, fmt.Errorf("invalid coordinate string %q", coord)
