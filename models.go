@@ -196,7 +196,7 @@ func (p *Player) String() string {
 // Ref: https://github.com/online-go/goban/blob/9d191bb385e475636a3883e0d1e79687beb9576c/src/engine/GobanEngine.ts#L2094C1-L2107C1
 func (p *Player) Ranking() string {
 	if p.Rank >= 1037 {
-		return fmt.Sprintf("%.1fp", p.Rank-1036)
+		return fmt.Sprintf("%.fp", p.Rank-1036)
 	} else if p.Rank >= 30 {
 		return fmt.Sprintf("%.1fd", p.Rank-29)
 	} else if p.Rank >= 1 {
