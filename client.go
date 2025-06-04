@@ -64,7 +64,7 @@ func (c *Client) Login(username, password string) error {
 		return err
 	}
 
-	if err := c.Identify(); err != nil {
+	if err := c.identify(); err != nil {
 		return err
 	}
 
@@ -109,7 +109,7 @@ func LoadClient(secretFile string) (*Client, error) {
 		}
 	}
 
-	if err := c.Identify(); err != nil {
+	if err := c.identify(); err != nil {
 		return nil, err
 	}
 
@@ -119,8 +119,8 @@ func LoadClient(secretFile string) (*Client, error) {
 	return &c, nil
 }
 
-// Identify verifies Client credentials and populate Username & UserID fields.
-func (c *Client) Identify() error {
+// identify verifies Client credentials and populate Username & UserID fields.
+func (c *Client) identify() error {
 	me, err := c.AboutMe()
 	if err != nil {
 		return err
@@ -172,7 +172,7 @@ func (c *Client) authenticate(data url.Values) error {
 // successfully. Save() is expected to persist the new credentials.
 func (c *Client) MaybeRefresh(deadline time.Duration) (bool, error) {
 	expiring := time.Now().Add(deadline).After(c.ExpiresAt)
-	if expiring || c.Identify() != nil {
+	if expiring || c.identify() != nil {
 		// TODO: Only fresh on 401 error
 		err := c.refreshToken()
 		return err == nil, err
