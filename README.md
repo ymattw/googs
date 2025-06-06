@@ -48,5 +48,9 @@ client, err := googs.LoadClient(secretFile)
 
 ### Demo
 
-See example usages in `demo/` which is a working minimal OGS client program
+See example usages in `demo/` which is a **working** minimal OGS client program
 that you can use to watch and play games on OGS.
+
+Seeing is believing!
+
+![Alt text](https://github.com/ymattw/googs/blob/main/demo/demo.png?raw=true)
