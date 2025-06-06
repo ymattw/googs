@@ -315,11 +315,9 @@ func (m *Move) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GameOverview is almost identical to Game but with a different json tag,
-// which is for decoding the /api/v1/overview reponse.
+// GameOverview is almost identical to Game but decoded using a different json
+// tag.
 type GameOverview struct {
-	ID   int64
-	Name string
 	Game `json:"json"` // Embedded
 }
 
