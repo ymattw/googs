@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	socketio "github.com/graarh/golang-socketio"
+	socketio "github.com/maldikhan/go.socket.io/socket.io/v5/client"
 )
 
 // Token represents an OAuth-compatible token structure.
