@@ -142,6 +142,17 @@ func (g *Game) IsMyGame(myUserID int64) bool {
 	return g.PlayerPool[fmt.Sprintf("%d", myUserID)].ID == myUserID
 }
 
+func (g *Game) IsMyTurn(myUserID int64) bool {
+	return g.Clock.CurrentPlayerID == myUserID
+}
+
+func (g *Game) Opponent(myUserID int64) Player {
+	if g.Players.Black.ID == myUserID {
+		return g.Players.White
+	}
+	return g.Players.Black
+}
+
 func (g *Game) PlayerByID(userID int64) Player {
 	return g.PlayerPool[fmt.Sprintf("%d", userID)]
 }
@@ -195,7 +206,7 @@ type Player struct {
 	Rank         float32
 }
 
-func (p *Player) String() string {
+func (p Player) String() string {
 	return p.Username + "[" + p.Ranking() + "]"
 }
 
