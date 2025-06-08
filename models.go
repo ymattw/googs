@@ -117,17 +117,17 @@ type Game struct {
 }
 
 func (g *Game) Overview() string {
-	whosTurn := "Black"
+	whoseTurn := "Black"
 	if g.Clock.CurrentPlayerID == g.Players.White.ID {
-		whosTurn = "White"
+		whoseTurn = "White"
 	}
 	return fmt.Sprintf("%d %-10q %s vs %s, %d moves, %s to play",
 		g.GameID,
 		g.GameName,
-		g.BlackPlayer(),
-		g.WhitePlayer(),
+		g.BlackPlayerSummary(),
+		g.WhitePlayerSummary(),
 		len(g.Moves),
-		whosTurn)
+		whoseTurn)
 }
 
 func (g *Game) URL() string {
@@ -157,11 +157,11 @@ func (g *Game) PlayerByID(userID int64) Player {
 	return g.PlayerPool[fmt.Sprintf("%d", userID)]
 }
 
-func (g *Game) BlackPlayer() string {
+func (g *Game) BlackPlayerSummary() string {
 	return "(B) " + g.Players.Black.String()
 }
 
-func (g *Game) WhitePlayer() string {
+func (g *Game) WhitePlayerSummary() string {
 	return "(W) " + g.Players.White.String()
 }
 
@@ -169,16 +169,16 @@ func (g *Game) Result(state *GameState) string {
 	if g.Phase != "finished" {
 		return ""
 	}
-	winner := g.BlackPlayer()
+	winner := g.BlackPlayerSummary()
 	if g.WinnerID == g.WhitePlayerID {
-		winner = g.WhitePlayer()
+		winner = g.WhitePlayerSummary()
 	}
 	return fmt.Sprintf("%s won by %s", winner, state.Outcome)
 }
 
 func (g *Game) Status(state *GameState) string {
 	if state.MoveNumber == 0 {
-		return fmt.Sprintf("Game ready, %s to start", g.BlackPlayer())
+		return fmt.Sprintf("Game ready, %s to start", g.BlackPlayerSummary())
 	}
 	if state.Phase == "finished" {
 		return "Game has finished, " + g.Result(state)

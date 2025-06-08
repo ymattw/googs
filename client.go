@@ -74,6 +74,12 @@ func (c *Client) Login(username, password string) error {
 	return nil
 }
 
+// LoggedIn returns whether the client is logged in, without validating
+// credentials.
+func (c *Client) LoggedIn() bool {
+	return c != nil && c.AccessToken != "" && c.Username != "" && c.socket != nil
+}
+
 // Save stores authenticated Client credentials into a file in JSON format.
 // This is recommended practice right after logged in via Login() once.
 func (c *Client) Save(secretFile string) error {
