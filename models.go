@@ -97,6 +97,7 @@ type Game struct {
 	Players                       Players
 	Private                       bool
 	Ranked                        bool
+	Removed                       string
 	Rengo                         bool
 	Rules                         string
 	ScoreHandicap                 bool        `json:"score_handicap"`
@@ -116,16 +117,16 @@ type Game struct {
 	WinnerID                      int64 `json:"winner"` // Only when Phase == "finished"
 }
 
-func (g *Game) Overview() string {
+func (g *Game) String() string {
 	whoseTurn := "Black"
 	if g.Clock.CurrentPlayerID == g.Players.White.ID {
 		whoseTurn = "White"
 	}
-	return fmt.Sprintf("%d %-10q %s vs %s, %d moves, %s to play",
+	return fmt.Sprintf("%d %q %s vs %s, %d moves, %s to play",
 		g.GameID,
 		g.GameName,
-		g.BlackPlayerSummary(),
-		g.WhitePlayerSummary(),
+		g.BlackPlayerTitle(),
+		g.WhitePlayerTitle(),
 		len(g.Moves),
 		whoseTurn)
 }
@@ -157,11 +158,19 @@ func (g *Game) PlayerByID(userID int64) Player {
 	return g.PlayerPool[fmt.Sprintf("%d", userID)]
 }
 
-func (g *Game) BlackPlayerSummary() string {
+func (g *Game) BlackPlayer() Player {
+	return g.Players.Black
+}
+
+func (g *Game) WhitePlayer() Player {
+	return g.Players.White
+}
+
+func (g *Game) BlackPlayerTitle() string {
 	return "(B) " + g.Players.Black.String()
 }
 
-func (g *Game) WhitePlayerSummary() string {
+func (g *Game) WhitePlayerTitle() string {
 	return "(W) " + g.Players.White.String()
 }
 
@@ -169,33 +178,44 @@ func (g *Game) Result(state *GameState) string {
 	if g.Phase != "finished" {
 		return ""
 	}
-	winner := g.BlackPlayerSummary()
+	winner := g.BlackPlayerTitle()
 	if g.WinnerID == g.WhitePlayerID {
-		winner = g.WhitePlayerSummary()
+		winner = g.WhitePlayerTitle()
 	}
 	return fmt.Sprintf("%s won by %s", winner, state.Outcome)
 }
 
-func (g *Game) Status(state *GameState) string {
+func (g *Game) Status(state *GameState, myUserID int64) string {
 	if state.MoveNumber == 0 {
-		return fmt.Sprintf("Game ready, %s to start", g.BlackPlayerSummary())
+		return fmt.Sprintf("Game ready, %s to start", g.BlackPlayerTitle())
 	}
 	if state.Phase == "finished" {
 		return "Game has finished, " + g.Result(state)
 	}
 
-	whoPlayed := "Black"
-	turn := "White"
-	if state.PlayerToMove == g.BlackPlayerID {
-		whoPlayed = "White"
-		turn = "Black"
+	var whoPlayed, turn string
+	if g.IsMyGame(myUserID) {
+		turn = "Opponent's"
+		whoPlayed = "You"
+		if state.PlayerToMove == myUserID {
+			turn = "Your"
+			whoPlayed = "Opponent"
+		}
+	} else {
+		turn = "White's"
+		whoPlayed = "Black"
+		if state.PlayerToMove == g.BlackPlayerID {
+			turn = "Black's"
+			whoPlayed = "White"
+		}
 	}
+
 	if state.LastMove.IsPass() {
-		return fmt.Sprintf("%d moves, %s passed, %s's turn", state.MoveNumber, whoPlayed, turn)
+		return fmt.Sprintf("%d moves. %s passed, %s turn", state.MoveNumber, whoPlayed, turn)
 	}
 
 	a1, _ := state.LastMove.ToA1Coordinate(g.BoardSize())
-	return fmt.Sprintf("%d moves, %s played %s, %s's turn", state.MoveNumber, whoPlayed, a1, turn)
+	return fmt.Sprintf("%d moves. %s played %s, %s turn", state.MoveNumber, whoPlayed, a1, turn)
 }
 
 // Player ontains basic user information as part of Game.
@@ -339,7 +359,7 @@ type GameMove struct {
 }
 
 type GameState struct {
-	// Phase has value "play", "finished" etc.
+	// Phase has value "play", "stone removal", "finished" etc.
 	Phase string
 
 	// Number of moves already played.

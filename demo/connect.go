@@ -14,7 +14,7 @@ import (
 
 func connect(args ...string) {
 	if len(args) != 1 {
-		log.Fatal("Syntax: play <gameID>")
+		log.Fatal("Syntax: connect <gameID>")
 	}
 	gameID, err := parseGameID(args[0])
 	if err != nil {
@@ -42,7 +42,7 @@ func connect(args ...string) {
 		log.Fatal(err)
 	}
 	defer client.GameDisconnect(gameID)
-	log.Printf("Connected to game %s", game.Overview())
+	log.Printf("Connected to game %s", game)
 
 	if !game.IsMyGame(client.UserID) {
 		log.Printf("Not your game, watching only")
@@ -68,7 +68,7 @@ func connect(args ...string) {
 		if numMoves != gameState.MoveNumber {
 			numMoves = gameState.MoveNumber
 			drawBoard(gameState)
-			log.Printf("%s", game.Status(gameState))
+			log.Printf("%s", game.Status(gameState, client.UserID))
 		}
 		if gameState.Phase == "finished" {
 			log.Printf("%s", game.Result(gameState))

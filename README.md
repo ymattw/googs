@@ -29,11 +29,11 @@ client.Save(secretFile)
 // Use REST API
 overview, err := client.Overview())
 // if err != nil { ... }
-fmt.Printf("Total %d active games\n", len(overview.ActiveGames()))
+fmt.Printf("Total %d active games\n", len(overview.ActiveGames))
 
 // Use Realtime API
 client.GameConnect(12345, func(g *googs.Game) {
-	fmt.Printf("Received game data %s\n", g.Overview())
+	fmt.Printf("Received game data %s\n", g)
 })
 ```
 
