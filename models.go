@@ -9,6 +9,18 @@ import (
 	"time"
 )
 
+type PlayerColor int
+
+const (
+	PlayerUnknown PlayerColor = iota
+	PlayerBlack
+	PlayerWhite
+)
+
+func (p PlayerColor) String() string {
+	return [...]string{"Unknown", "Black", "White"}[p]
+}
+
 // User contains full profile of a user
 type User struct {
 	ID           int64
@@ -195,10 +207,10 @@ func (g *Game) Status(state *GameState, myUserID int64) string {
 
 	var whoPlayed, turn string
 	if g.IsMyGame(myUserID) {
-		turn = "Opponent's"
+		turn = "opponent's"
 		whoPlayed = "You"
 		if state.PlayerToMove == myUserID {
-			turn = "Your"
+			turn = "your"
 			whoPlayed = "Opponent"
 		}
 	} else {
@@ -216,6 +228,14 @@ func (g *Game) Status(state *GameState, myUserID int64) string {
 
 	a1, _ := state.LastMove.ToA1Coordinate(g.BoardSize())
 	return fmt.Sprintf("%d moves. %s played %s, %s turn", state.MoveNumber, whoPlayed, a1, turn)
+}
+
+func (g *Game) WhoseTurn(state *GameState) PlayerColor {
+	turn := PlayerWhite
+	if state.PlayerToMove == g.BlackPlayer().ID {
+		turn = PlayerBlack
+	}
+	return turn
 }
 
 // Player ontains basic user information as part of Game.
