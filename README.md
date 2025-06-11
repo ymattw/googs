@@ -32,7 +32,9 @@ overview, err := client.Overview())
 fmt.Printf("Total %d active games\n", len(overview.ActiveGames))
 
 // Use Realtime API
-client.GameConnect(12345, func(g *googs.Game) {
+client.GameConnect(12345)
+
+client.OnGameData(gameID, func(g *googs.Game) {
 	fmt.Printf("Received game data %s\n", g)
 })
 ```
@@ -43,7 +45,7 @@ client.GameConnect(12345, func(g *googs.Game) {
 client, err := googs.LoadClient(secretFile)
 // if err != nil { ... }
 
-// Webscoket is connected, ready to use the APIs
+// Websocket is connected, ready to use the APIs
 ```
 
 ### Demo

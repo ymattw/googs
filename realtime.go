@@ -41,15 +41,9 @@ func (c *Client) Disconnect() {
 	}
 }
 
-// GameConnect starts watching gamedata event and emit the connect message.
-func (c *Client) GameConnect(gameID int64, fn func(*Game)) error {
-	if fn != nil {
-		callback := func(_ *socketio.Channel, g *Game) { fn(g) }
-		err := c.socket.On(fmt.Sprintf("game/%d/gamedata", gameID), callback)
-		if err != nil {
-			return err
-		}
-	}
+// GameConnect connects to a game, client should call On... functions to start
+// watching events.
+func (c *Client) GameConnect(gameID int64) error {
 	return c.socket.Emit("game/connect", map[string]any{
 		"game_id":   gameID,
 		"player_id": c.UserID,
@@ -57,10 +51,30 @@ func (c *Client) GameConnect(gameID int64, fn func(*Game)) error {
 	})
 }
 
+// GameDisconnect disconnects a game.
 func (c *Client) GameDisconnect(gameID int64) error {
 	return c.socket.Emit("game/disconnect", map[string]any{
 		"game_id": gameID,
 	})
+}
+
+// OnGameData starts watching gamedata events.
+func (c *Client) OnGameData(gameID int64, fn func(*Game)) error {
+	// The first paramter is actually of type `*socketio.Channel` (unused)
+	callback := func(_ any, g *Game) { fn(g) }
+	return c.socket.On(fmt.Sprintf("game/%d/gamedata", gameID), callback)
+}
+
+// OnClock starts watching clock events.
+func (c *Client) OnClock(gameID int64, fn func(*Clock)) error {
+	callback := func(_ any, clock *Clock) { fn(clock) }
+	return c.socket.On(fmt.Sprintf("game/%d/clock", gameID), callback)
+}
+
+// OnMove starts watching game move events.
+func (c *Client) OnMove(gameID int64, fn func(*GameMove)) error {
+	callback := func(_ any, m *GameMove) { fn(m) }
+	return c.socket.On(fmt.Sprintf("game/%d/move", gameID), callback)
 }
 
 // GameMove submits a move (GameConnect must be called first).
@@ -80,15 +94,4 @@ func (c *Client) GameResign(gameID int64) error {
 	return c.socket.Emit("game/resign", map[string]any{
 		"game_id": gameID,
 	})
-}
-
-func (c *Client) OnClock(gameID int64, fn func(*Clock)) error {
-	callback := func(_ *socketio.Channel, clock *Clock) { fn(clock) }
-	return c.socket.On(fmt.Sprintf("game/%d/clock", gameID), callback)
-}
-
-// OnMove starts watching game move event.
-func (c *Client) OnMove(gameID int64, fn func(*GameMove)) error {
-	callback := func(_ *socketio.Channel, m *GameMove) { fn(m) }
-	return c.socket.On(fmt.Sprintf("game/%d/move", gameID), callback)
 }

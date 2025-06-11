@@ -35,14 +35,16 @@ func connect(args ...string) {
 	defer close(chGame)
 	defer close(chGameMove)
 
-	if err := client.GameConnect(gameID, func(g *googs.Game) {
-		// log.Printf("Sending game data %s", g.Overview())
-		chGame <- g
-	}); err != nil {
+	if err := client.GameConnect(gameID); err != nil {
 		log.Fatal(err)
 	}
 	defer client.GameDisconnect(gameID)
 	log.Printf("Connected to game %s", game)
+
+	client.OnGameData(gameID, func(g *googs.Game) {
+		// log.Printf("Sending game data %s", g.Overview())
+		chGame <- g
+	})
 
 	if !game.IsMyGame(client.UserID) {
 		log.Printf("Not your game, watching only")
