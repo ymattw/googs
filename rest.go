@@ -33,14 +33,19 @@ func (c *Client) Overview() (*Overview, error) {
 
 // Game fetches general game information, mostly static.
 func (c *Client) Game(gameID int64) (*Game, error) {
-	res := Game{}
-	if err := c.Get(fmt.Sprintf("/termination-api/game/%d", gameID), nil, &res); err != nil {
+	// NOTE: /termination-api/game/:ID does not work for private games, so
+	// use the tradional API here with a temporary struct.
+	gameT := struct {
+		Game `json:"gamedata"` // Embedded
+	}{}
+	if err := c.Get(fmt.Sprintf("/api/v1/games/%d", gameID), nil, &gameT); err != nil {
 		return nil, err
 	}
+	res := &gameT.Game
 	if res.Height <= 0 || res.Width <= 0 || res.Height != res.Width {
 		return nil, fmt.Errorf("invalid Board dimension %d x %d", res.Width, res.Height)
 	}
-	return &res, nil
+	return res, nil
 }
 
 // GameState fetches current game information with board spanshot.
