@@ -43,7 +43,7 @@ client.GameConnect(12345, func(g *googs.Game) {
 client, err := googs.LoadClient(secretFile)
 // if err != nil { ... }
 
-// Webscoket is connected, ready to use the APIs
+// Websocket is connected, ready to use the APIs
 ```
 
 ### Demo
