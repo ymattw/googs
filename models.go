@@ -439,12 +439,11 @@ func (g *GameState) IsMyTurn(myUserID int64) bool {
 
 func (g *GameState) RemovalString() string {
 	var pairs []string
-	for r, row := range g.Removal {
-		for c, val := range row {
+	for y, row := range g.Removal {
+		for x, val := range row {
 			if val == 1 {
-				colChar := rune('a' + c)
-				rowChar := rune('a' + r)
-				pairs = append(pairs, string(colChar), string(rowChar))
+				move := fmt.Sprintf("%c%c", rune('a'+x), rune('a'+y)) // SGF
+				pairs = append(pairs, move)
 			}
 		}
 	}
@@ -453,7 +452,7 @@ func (g *GameState) RemovalString() string {
 
 // RemovedStones is the response of Realtime API "game/:id/removed_stones".
 type RemovedStones struct {
-	// Result removal string is a sequence of <col><row> pairs, e.g.
+	// Result removal string is a sequence of SGF coordinates, e.g.
 	// "edhdid" is equivalent to origin coordinates (3,4) (3,7) (3,8).
 	AllRemoved string `json:"all_removed"`
 
@@ -466,7 +465,7 @@ type RemovedStones struct {
 type RemovedStonesAccepted struct {
 	PlayerID int64 `json:"player_id"`
 
-	// Result removal string is a sequence of <col><row> pairs, e.g.
+	// Result removal string is a sequence of SGF coordinates, e.g.
 	// "edhdid" is equivalent to origin coordinates (3,4) (3,7) (3,8).
 	Stones  string
 	Players Players
