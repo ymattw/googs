@@ -310,15 +310,77 @@ type Clock struct {
 	Now             Timestamp  // Only for OnClock
 }
 
+func (c *Clock) PrettyClock(player PlayerColor) string {
+	var t PlayerTime
+	var myTurn bool
+
+	switch player {
+	case PlayerBlack:
+		t = c.BlackTime
+		myTurn = c.CurrentPlayerID == c.BlackPlayerID
+	case PlayerWhite:
+		t = c.WhiteTime
+		myTurn = c.CurrentPlayerID == c.WhitePlayerID
+	default:
+		return "??:??"
+	}
+
+	if t.SuddenDeath() {
+		now := c.Now
+		zero := Timestamp{}
+		if now == zero {
+			now = Timestamp{time.Now()}
+		}
+		elapsed := time.Since(now.Time).Seconds()
+		remaining := t.PeriodTimeLeft - elapsed
+		return fmt.Sprintf("%s (SD)", prettyTime(remaining))
+	}
+	if !myTurn {
+		return prettyTime(t.PeriodTime)
+	}
+
+	elapsed := time.Since(c.LastMove.Time).Seconds()
+	remaining := t.PeriodTime - elapsed
+	return fmt.Sprintf("%s (%sx%d)", prettyTime(remaining), prettyTime(t.PeriodTime), t.Periods)
+}
+
+func prettyTime(seconds float64) string {
+	days := math.Floor(seconds / 86400)
+	seconds -= days * 86400
+	hours := math.Floor(seconds / 3600)
+	seconds -= hours * 3600
+	minutes := math.Floor(seconds / 60)
+	seconds -= minutes * 60
+
+	if days > 0 {
+		if hours > 0 {
+			return fmt.Sprintf("%.0fd%.0fh", days, hours)
+		}
+		// "1d" is confusing, use "24h" instead
+		return fmt.Sprintf("%.0fh", days*24)
+	}
+	if hours > 0 {
+		return fmt.Sprintf("%.0fh%.0fm", hours, minutes)
+	}
+	if minutes > 0 {
+		return fmt.Sprintf("%2.0f:%2.0f", minutes, seconds)
+	}
+	return fmt.Sprintf("%.0fs", seconds)
+}
+
 type PlayerTime struct {
 	// Only for Rengo games
 	Value Timestamp
 
 	// Only for non Rengo games
-	PeriodTime     int64   `json:"period_time"`
+	PeriodTime     float64 `json:"period_time"`
 	PeriodTimeLeft float64 `json:"period_time_left"`
 	Periods        int
 	ThinkingTime   float64 `json:"thinking_time"`
+}
+
+func (t *PlayerTime) SuddenDeath() bool {
+	return t.Periods <= 1
 }
 
 // UnmarshalJSON is a customized JSON decoder for properly handling the
@@ -343,15 +405,19 @@ type Players struct {
 }
 
 type TimeControl struct {
-	MainTime        int   `json:"main_time"`
-	PauseOnWeekends bool  `json:"pause_on_weekends"`
-	PeriodTime      int64 `json:"period_time"`
+	MainTime        float64 `json:"main_time"`
+	PauseOnWeekends bool    `json:"pause_on_weekends"`
+	PeriodTime      float64 `json:"period_time"`
 	Periods         int
 	PeriodsMax      int `json:"periods_max"`
 	PeriodsMin      int `json:"periods_min"`
 	Speed           string
 	System          string
 	TimeControl     string `json:"time_control"`
+}
+
+func (t TimeControl) String() string {
+	return fmt.Sprintf("%s %s+%sx%d", t.System, prettyTime(t.MainTime), prettyTime(t.PeriodTime), t.Periods)
 }
 
 // Overview contains the overview as what users see after logged into OGS.
