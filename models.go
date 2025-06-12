@@ -72,19 +72,27 @@ type Timestamp struct {
 }
 
 // UnmarshalJSON is a customized JSON decoder for properly handling timestamps
-// represented in both seconds or miliseconds.
+// represented in both seconds or milliseconds.
 func (t *Timestamp) UnmarshalJSON(b []byte) error {
 	ts, err := strconv.ParseInt(string(b), 10, 64)
 	if err != nil {
 		return fmt.Errorf("Timestamp.UnmarshalJSON: expected a numeric Unix timestamp, but got %q: %w", string(b), err)
 	}
-	if ts > 1_000_000_000_000 { //  Assume miliseconds
+	if ts > 1_000_000_000_000 { //  Assume milliseconds
 		t.Time = time.UnixMilli(ts)
 	} else {
 		t.Time = time.Unix(ts, 0)
 	}
 	return nil
 }
+
+type GamePhase string
+
+const (
+	PlayPhase         GamePhase = "play"
+	StoneRemovalPhase GamePhase = "stone removal"
+	FinishedPhase     GamePhase = "finished"
+)
 
 type Game struct {
 	AgaHandicapScoring            bool  `json:"aga_handicap_scoring"`
@@ -104,7 +112,7 @@ type Game struct {
 	Latencies                     map[string]int64 // playerID => latencies
 	Moves                         []Move
 	OpponentPlaysFirstAfterResume bool `json:"opponent_plays_first_after_resume"`
-	Phase                         string
+	Phase                         GamePhase
 	PlayerPool                    map[string]Player `json:"player_pool"` // Keys are player IDs (string)
 	Players                       Players
 	Private                       bool
@@ -112,6 +120,7 @@ type Game struct {
 	Removed                       string
 	Rengo                         bool
 	Rules                         string
+	Score                         Score       // Only available when Phase is "finished"
 	ScoreHandicap                 bool        `json:"score_handicap"`
 	ScorePasses                   bool        `json:"score_passes"`
 	ScorePrisoners                bool        `json:"score_prisoners"`
@@ -126,7 +135,22 @@ type Game struct {
 	WhiteMustPassLast             bool        `json:"white_must_pass_last"`
 	WhitePlayerID                 int64       `json:"white_player_id"`
 	Width                         int
-	WinnerID                      int64 `json:"winner"` // Only when Phase == "finished"
+	WinnerID                      int64 `json:"winner"` // Only when Phase is "finished"
+}
+
+type Score struct {
+	Black PlayerScore
+	White PlayerScore
+}
+
+type PlayerScore struct {
+	Handicap         int
+	Komi             float32
+	Prisoners        int
+	ScoringPositions string `json:"scoring_positions"`
+	Stones           int
+	Territory        float32
+	Total            float32
 }
 
 func (g *Game) String() string {
@@ -187,7 +211,7 @@ func (g *Game) WhitePlayerTitle() string {
 }
 
 func (g *Game) Result(state *GameState) string {
-	if g.Phase != "finished" {
+	if g.Phase != FinishedPhase {
 		return ""
 	}
 	winner := g.BlackPlayerTitle()
@@ -198,10 +222,13 @@ func (g *Game) Result(state *GameState) string {
 }
 
 func (g *Game) Status(state *GameState, myUserID int64) string {
+	if state == nil {
+		return g.String() + " (unknown board state)"
+	}
 	if state.MoveNumber == 0 {
 		return fmt.Sprintf("Game ready, %s to start", g.BlackPlayerTitle())
 	}
-	if state.Phase == "finished" {
+	if state.Phase == FinishedPhase {
 		return "Game has finished, " + g.Result(state)
 	}
 
@@ -238,12 +265,15 @@ func (g *Game) WhoseTurn(state *GameState) PlayerColor {
 	return turn
 }
 
-// Player ontains basic user information as part of Game.
+// Player contains basic user information as part of Game.
 type Player struct {
 	ID           int64
 	Username     string
 	Professional bool
 	Rank         float32
+
+	// Accepted removals, see RemovedStones for explanation.
+	AcceptedStones string `json:"accepted_stones"`
 }
 
 func (p Player) String() string {
@@ -273,7 +303,7 @@ type Clock struct {
 	Expiration      Timestamp
 	GameID          int64     `json:"game_id"`
 	LastMove        Timestamp `json:"last_move"`
-	PausedSince     int64     `json:"paused_since"`
+	PausedSince     Timestamp `json:"paused_since"`
 	Title           string
 	WhitePlayerID   int64      `json:"white_player_id"`
 	WhiteTime       PlayerTime `json:"white_time"`
@@ -380,7 +410,7 @@ type GameMove struct {
 
 type GameState struct {
 	// Phase has value "play", "stone removal", "finished" etc.
-	Phase string
+	Phase GamePhase
 
 	// Number of moves already played.
 	MoveNumber int `json:"move_number"`
@@ -405,6 +435,50 @@ func (g *GameState) BoardSize() int {
 
 func (g *GameState) IsMyTurn(myUserID int64) bool {
 	return g.PlayerToMove == myUserID
+}
+
+func (g *GameState) RemovalString() string {
+	var pairs []string
+	for r, row := range g.Removal {
+		for c, val := range row {
+			if val == 1 {
+				colChar := rune('a' + c)
+				rowChar := rune('a' + r)
+				pairs = append(pairs, string(colChar), string(rowChar))
+			}
+		}
+	}
+	return strings.Join(pairs, "")
+}
+
+// RemovedStones is the response of Realtime API "game/:id/removed_stones".
+type RemovedStones struct {
+	// Result removal string is a sequence of <col><row> pairs, e.g.
+	// "edhdid" is equivalent to origin coordinates (3,4) (3,7) (3,8).
+	AllRemoved string `json:"all_removed"`
+
+	// Removal changes
+	Removed bool
+	Stones  string
+}
+
+// RemovedStonesAccepted is the response of Realtime API "game/:id/removed_stones_accepted".
+type RemovedStonesAccepted struct {
+	PlayerID int64 `json:"player_id"`
+
+	// Result removal string is a sequence of <col><row> pairs, e.g.
+	// "edhdid" is equivalent to origin coordinates (3,4) (3,7) (3,8).
+	Stones  string
+	Players Players
+
+	// This will change to "finished" when both sides accepted
+	Phase GamePhase
+	Score Score
+
+	// Only available when Phase is "finished"
+	EndTime  Timestamp `json:"end_time"`
+	Outcome  string
+	WinnerID int64 `json:"winner"`
 }
 
 // OriginCoordinate is zero base coordinate.

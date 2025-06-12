@@ -303,3 +303,58 @@ func TestA1Coordinate_ToOriginCoordinate(t *testing.T) {
 		})
 	}
 }
+
+func TestGameState_RemovalString(t *testing.T) {
+	tests := []struct {
+		name    string
+		removal [][]int
+		want    string
+	}{
+		{
+			name:    "Empty Removal matrix",
+			removal: [][]int{},
+			want:    "",
+		},
+		{
+			name:    "Removal matrix with no ones",
+			removal: [][]int{{0, 0, 0}, {0, 0, 0}},
+			want:    "",
+		},
+		{
+			name:    "Single one at (0,0)",
+			removal: [][]int{{1}},
+			want:    "aa",
+		},
+		{
+			name:    "Single one at (1,2)",
+			removal: [][]int{{0, 0, 0}, {0, 0, 1}, {0, 0, 0}},
+			want:    "cb",
+		},
+		{
+			name: "Larger matrix with various positions",
+			removal: [][]int{
+				{0, 0, 0, 0, 0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 1, 0, 0, 1, 1},
+				{0, 0, 0, 0, 0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0, 0, 0, 0, 0},
+			},
+			want: "edhdid",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := &GameState{Removal: tc.removal}
+			got := g.RemovalString()
+			if got != tc.want {
+				t.Errorf("For Removal: %v\nExpected: %q\nGot: %q", tc.removal, tc.want, got)
+				t.Errorf("RemovalString() with %v want %#v, got %#v", tc.removal, tc.want, got)
+			}
+		})
+	}
+}

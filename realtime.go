@@ -65,6 +65,24 @@ func (c *Client) OnGameData(gameID int64, fn func(*Game)) error {
 	return c.socket.On(fmt.Sprintf("game/%d/gamedata", gameID), callback)
 }
 
+// OnGamePhase starts watching game phase changes.
+func (c *Client) OnGamePhase(gameID int64, fn func(GamePhase)) error {
+	callback := func(_ any, p GamePhase) { fn(p) }
+	return c.socket.On(fmt.Sprintf("game/%d/phase", gameID), callback)
+}
+
+// OnGameRemovedStones starts watching game removed stones changes.
+func (c *Client) OnGameRemovedStones(gameID int64, fn func(*RemovedStones)) error {
+	callback := func(_ any, r *RemovedStones) { fn(r) }
+	return c.socket.On(fmt.Sprintf("game/%d/removed_stones", gameID), callback)
+}
+
+// OnGameRemovedStones starts watching game removed stones acceptance.
+func (c *Client) OnGameRemovedStonesAccepted(gameID int64, fn func(*RemovedStonesAccepted)) error {
+	callback := func(_ any, r *RemovedStonesAccepted) { fn(r) }
+	return c.socket.On(fmt.Sprintf("game/%d/removed_stones_accepted", gameID), callback)
+}
+
 // OnClock starts watching clock events.
 func (c *Client) OnClock(gameID int64, fn func(*Clock)) error {
 	callback := func(_ any, clock *Clock) { fn(clock) }
@@ -93,5 +111,12 @@ func (c *Client) PassTurn(gameID int64) error {
 func (c *Client) GameResign(gameID int64) error {
 	return c.socket.Emit("game/resign", map[string]any{
 		"game_id": gameID,
+	})
+}
+
+func (c *Client) GameRemovedStonesAccept(gameID int64, g *GameState) error {
+	return c.socket.Emit("game/removed_stones/accept", map[string]any{
+		"game_id": gameID,
+		"stones":  g.RemovalString(),
 	})
 }
