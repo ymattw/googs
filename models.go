@@ -153,11 +153,16 @@ type PlayerScore struct {
 	Total            float32
 }
 
-func (g *Game) String() string {
-	whoseTurn := "Black"
-	if g.Clock.CurrentPlayerID == g.Players.White.ID {
-		whoseTurn = "White"
+// Equivalent to Python `return x if b else y`
+func cond[T any](b bool, x, y T) T {
+	if b {
+		return x
 	}
+	return y
+}
+
+func (g *Game) String() string {
+	whoseTurn := cond(g.Clock.CurrentPlayerID == g.Players.Black.ID, "Black", "White")
 	return fmt.Sprintf("%d %q %s vs %s, %d moves, %s to play",
 		g.GameID,
 		g.GameName,
@@ -184,10 +189,7 @@ func (g *Game) IsMyTurn(myUserID int64) bool {
 }
 
 func (g *Game) Opponent(myUserID int64) Player {
-	if g.Players.Black.ID == myUserID {
-		return g.Players.White
-	}
-	return g.Players.Black
+	return cond(g.Players.Black.ID == myUserID, g.Players.White, g.Players.Black)
 }
 
 func (g *Game) PlayerByID(userID int64) Player {
@@ -214,10 +216,7 @@ func (g *Game) Result(state *GameState) string {
 	if g.Phase != FinishedPhase {
 		return ""
 	}
-	winner := g.BlackPlayerTitle()
-	if g.WinnerID == g.WhitePlayerID {
-		winner = g.WhitePlayerTitle()
-	}
+	winner := cond(g.WinnerID == g.BlackPlayerID, g.BlackPlayerTitle(), g.WhitePlayerTitle())
 	return fmt.Sprintf("%s won by %s", winner, state.Outcome)
 }
 
@@ -234,19 +233,11 @@ func (g *Game) Status(state *GameState, myUserID int64) string {
 
 	var whoPlayed, turn string
 	if g.IsMyGame(myUserID) {
-		turn = "opponent's"
-		whoPlayed = "You"
-		if state.PlayerToMove == myUserID {
-			turn = "your"
-			whoPlayed = "Opponent"
-		}
+		turn = cond(state.PlayerToMove == myUserID, "your", "opponent's")
+		whoPlayed = cond(state.PlayerToMove == myUserID, "Opponent", "You")
 	} else {
-		turn = "White's"
-		whoPlayed = "Black"
-		if state.PlayerToMove == g.BlackPlayerID {
-			turn = "Black's"
-			whoPlayed = "White"
-		}
+		turn = cond(state.PlayerToMove == g.BlackPlayerID, "Black's", "White's")
+		whoPlayed = cond(state.PlayerToMove == g.BlackPlayerID, "White", "Black")
 	}
 
 	if state.LastMove.IsPass() {
@@ -258,11 +249,7 @@ func (g *Game) Status(state *GameState, myUserID int64) string {
 }
 
 func (g *Game) WhoseTurn(state *GameState) PlayerColor {
-	turn := PlayerWhite
-	if state.PlayerToMove == g.BlackPlayer().ID {
-		turn = PlayerBlack
-	}
-	return turn
+	return cond(state.PlayerToMove == g.BlackPlayer().ID, PlayerBlack, PlayerWhite)
 }
 
 // Player contains basic user information as part of Game.
@@ -326,11 +313,7 @@ func (c *Clock) PrettyClock(player PlayerColor) string {
 	}
 
 	if t.SuddenDeath() {
-		now := c.Now
-		zero := Timestamp{}
-		if now == zero {
-			now = Timestamp{time.Now()}
-		}
+		now := cond(c.Now != Timestamp{} /*zero value*/, c.Now, Timestamp{time.Now()})
 		elapsed := time.Since(now.Time).Seconds()
 		remaining := t.PeriodTimeLeft - elapsed
 		return fmt.Sprintf("%s (SD)", prettyTime(remaining))
