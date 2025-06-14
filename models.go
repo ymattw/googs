@@ -607,3 +607,76 @@ func (c A1Coordinate) ToOriginCoordinate(boardSize int) (*OriginCoordinate, erro
 	}
 	return &OriginCoordinate{X: x, Y: y}, nil
 }
+
+type GameListWhere struct {
+	HideRanked     bool    `json:"hide_ranked"`
+	HideUnranked   bool    `json:"hide_unranked"`
+	RengoOnly      bool    `json:"rengo_only"`
+	Hide19x19      bool    `json:"hide_19x19"`
+	Hide9x9        bool    `json:"hide_9x9"`
+	Hide13x13      bool    `json:"hide_13x13"`
+	HideOther      bool    `json:"hide_other"`
+	HideTournament bool    `json:"hide_tournament"`
+	HideLadder     bool    `json:"hide_ladder"`
+	HideOpen       bool    `json:"hide_open"`
+	HideHandicap   bool    `json:"hide_handicap"`
+	HideEven       bool    `json:"hide_even"`
+	HideBotGames   bool    `json:"hide_bot_games"`
+	HideBeginning  bool    `json:"hide_beginning"`
+	HideMiddle     bool    `json:"hide_middle"`
+	HideEnd        bool    `json:"hide_end"`
+	PlayerIDs      []int64 `json:"players"`
+	TournamentID   int64   `json:"tournament_id"`
+	LadderID       int64   `json:"ladder_id"`
+	MalkOnly       bool    `json:"malk_only"`
+}
+
+type GameListEntry struct {
+	ID               int64
+	GroupIDs         []int64         `json:"group_ids"`
+	GroupIDsMap      map[string]bool `json:"group_ids_map"`
+	KidsGoGame       bool            `json:"kidsgo_game"`
+	Phase            GamePhase
+	Name             string
+	PlayerToMove     int64 `json:"player_to_move"`
+	Width            int
+	Height           int
+	MoveNumber       int `json:"move_number"`
+	Paused           int // XXX: server response is a number 0/1
+	Private          bool
+	Black            Player
+	White            Player
+	Rengo            bool
+	DroppedPlayerID  int64     `json:"dropped_player"`
+	RengoCasualMode  bool      `json:"rengo_casual_mode"`
+	SecondsPerMove   int64     `json:"time_per_move"`
+	ClockExpiration  Timestamp `json:"clock_expiration"`
+	BotGame          bool      `json:"bot_game"`
+	Ranked           bool
+	Handicap         int
+	TournamentID     int64 `json:"tournament_id"`
+	LadderID         int64 `json:"ladder_id"`
+	Komi             float32
+	InBeginning      bool `json:"in_beginning"`
+	InMiddle         bool `json:"in_middle"`
+	InEnd            bool `json:"in_end"`
+	MalkovichPresent bool `json:"malkovich_present"`
+}
+
+type GameListType string
+
+const (
+	LiveGameList           GameListType = "live"
+	CorrespondenceGameList GameListType = "corr"
+	KidsGoGameList         GameListType = "kidsgo"
+)
+
+type GameListResponse struct {
+	List    GameListType
+	SortBy  string `json:"by"`
+	Size    int
+	Where   GameListWhere
+	From    int
+	Limit   int
+	Results []GameListEntry
+}

@@ -1,7 +1,9 @@
 package googs
 
 import (
+	"encoding/json"
 	"fmt"
+	"time"
 
 	socketio "github.com/graarh/golang-socketio"
 	"github.com/graarh/golang-socketio/transport"
@@ -119,4 +121,24 @@ func (c *Client) GameRemovedStonesAccept(gameID int64, g *GameState) error {
 		"game_id": gameID,
 		"stones":  g.RemovalString(),
 	})
+}
+
+func (c *Client) GameListQuery(list GameListType, from, limit int, where *GameListWhere, timeout time.Duration) (*GameListResponse, error) {
+	data := map[string]any{
+		"list":    list,
+		"sort_by": "rank",
+		"from":    from,
+		"limit":   limit,
+		"where":   where,
+	}
+	res, err := c.socket.Ack("gamelist/query", data, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := GameListResponse{}
+	if err := json.Unmarshal([]byte(res), &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
