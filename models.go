@@ -297,34 +297,41 @@ type Clock struct {
 	Now             Timestamp  // Only for OnClock
 }
 
+// PrettyClock returns a human reaable string of player's clock. Only works for
+// byoyomi system so bar.
+// TODO: Support other clocking system
 func (c *Clock) PrettyClock(player PlayerColor) string {
 	var t PlayerTime
-	var myTurn bool
+	var onTurn bool
 
 	switch player {
 	case PlayerBlack:
 		t = c.BlackTime
-		myTurn = c.CurrentPlayerID == c.BlackPlayerID
+		onTurn = c.CurrentPlayerID == c.BlackPlayerID
 	case PlayerWhite:
 		t = c.WhiteTime
-		myTurn = c.CurrentPlayerID == c.WhitePlayerID
+		onTurn = c.CurrentPlayerID == c.WhitePlayerID
 	default:
 		return "??:??"
 	}
 
+	// When called from Game.Clock the .Now field is not available
+	now := cond(c.Now != Timestamp{} /*zero*/, c.Now, c.LastMove) // Timestamp{time.Now()})
+	baseline := cond(onTurn, now, c.LastMove)
+	elapsed := cond(onTurn, time.Since(baseline.Time).Seconds(), 0) // Pause clock if not on turn
+	remaining := cond(t.ThinkingTime > 0, t.ThinkingTime-elapsed, t.PeriodTimeLeft-elapsed)
+	remaining = cond(remaining > 0, remaining, 0)
+
 	if t.SuddenDeath() {
-		now := cond(c.Now != Timestamp{} /*zero value*/, c.Now, Timestamp{time.Now()})
-		elapsed := time.Since(now.Time).Seconds()
-		remaining := t.PeriodTimeLeft - elapsed
 		return fmt.Sprintf("%s (SD)", prettyTime(remaining))
 	}
-	if !myTurn {
-		return prettyTime(t.PeriodTime)
+	if t.ThinkingTime > 0 {
+		return fmt.Sprintf("%s + %s (%d)", prettyTime(remaining), prettyTime(t.PeriodTime), t.Periods)
 	}
-
-	elapsed := time.Since(c.LastMove.Time).Seconds()
-	remaining := t.PeriodTime - elapsed
-	return fmt.Sprintf("%s (%sx%d)", prettyTime(remaining), prettyTime(t.PeriodTime), t.Periods)
+	if !onTurn {
+		remaining = t.PeriodTime // Reset when not on turn (and not in SD)
+	}
+	return fmt.Sprintf("%s (%d)", prettyTime(remaining), t.Periods)
 }
 
 func prettyTime(seconds float64) string {
@@ -346,7 +353,7 @@ func prettyTime(seconds float64) string {
 		return fmt.Sprintf("%.0fh%.0fm", hours, minutes)
 	}
 	if minutes > 0 {
-		return fmt.Sprintf("%2.0f:%2.0f", minutes, seconds)
+		return fmt.Sprintf("%.0f:%02.0f", minutes, seconds)
 	}
 	return fmt.Sprintf("%.0fs", seconds)
 }
