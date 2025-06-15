@@ -297,12 +297,23 @@ type Clock struct {
 	Now             Timestamp  // Only for OnClock
 }
 
-// PrettyClock returns a human reaable string of player's clock. Only works for
-// byoyomi system so bar.
-// TODO: Support other clocking system
-func (c *Clock) PrettyClock(player PlayerColor) string {
+type ComputedClock struct {
+	System         string
+	MainTime       float64
+	PeriodsLeft    int
+	PeriodTimeLeft float64
+	MovesLeft      int     // Only for canadian time control
+	BlockTimeLeft  float64 // Only for canadian time control
+	SuddenDeath    bool
+	TimedOut       bool
+}
+
+// ComputeClock returns a computed clock struct of the given players.
+func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock {
 	var t PlayerTime
 	var onTurn bool
+	var mainTime, periodTimeLeft float64
+	var periodsLeft int
 
 	switch player {
 	case PlayerBlack:
@@ -312,26 +323,84 @@ func (c *Clock) PrettyClock(player PlayerColor) string {
 		t = c.WhiteTime
 		onTurn = c.CurrentPlayerID == c.WhitePlayerID
 	default:
-		return "??:??"
+		return nil
 	}
 
-	// When called from Game.Clock the .Now field is not available
-	now := cond(c.Now != Timestamp{} /*zero*/, c.Now, c.LastMove) // Timestamp{time.Now()})
-	baseline := cond(onTurn, now, c.LastMove)
-	elapsed := cond(onTurn, time.Since(baseline.Time).Seconds(), 0) // Pause clock if not on turn
-	remaining := cond(t.ThinkingTime > 0, t.ThinkingTime-elapsed, t.PeriodTimeLeft-elapsed)
-	remaining = cond(remaining > 0, remaining, 0)
+	// When called from Game.Clock the .Now field is not available, assume
+	// the clock data was snapshoted at LastMove time.
+	snapshotTime := cond(c.Now != Timestamp{} /*zero*/, c.Now.Time, c.LastMove.Time)
+	elapsed := cond(onTurn, time.Since(snapshotTime).Seconds(), 0) // Pause clock if not on turn
 
-	if t.SuddenDeath() {
-		return fmt.Sprintf("%s (SD)", prettyTime(remaining))
+	// TODO: Support "simple" and "canadian"
+	switch tc.System {
+
+	case "absolute", "fisher":
+		mainTime = cond(onTurn, math.Max(0, t.ThinkingTime-elapsed), t.ThinkingTime)
+		return &ComputedClock{
+			System:      tc.System,
+			MainTime:    mainTime,
+			SuddenDeath: mainTime < 10,
+			TimedOut:    mainTime < 0,
+		}
+
+	case "byoyomi":
+		if onTurn {
+			var overTime float64
+			if t.ThinkingTime > 0 {
+				mainTime = t.ThinkingTime - elapsed
+				if mainTime < 0 {
+					overTime = -mainTime
+					mainTime = 0
+				}
+			} else {
+				mainTime = 0
+				overTime = elapsed
+			}
+			periodsLeft = t.Periods
+			periodTimeLeft = t.PeriodTime
+			if overTime > 0 {
+				periodsUsed := math.Floor(overTime / tc.PeriodTime)
+				periodsLeft -= int(periodsUsed)
+				periodsLeft = cond(periodsLeft > 0, periodsLeft, 0)
+				periodTimeLeft = tc.PeriodTime - (overTime - periodsUsed*tc.PeriodTime)
+				periodTimeLeft = cond(periodTimeLeft > 0, periodTimeLeft, 0)
+			}
+		} else {
+			periodsLeft = t.Periods
+			periodTimeLeft = tc.PeriodTime
+			mainTime = t.ThinkingTime
+		}
+		return &ComputedClock{
+			System:         tc.System,
+			MainTime:       mainTime,
+			PeriodsLeft:    periodsLeft,
+			PeriodTimeLeft: periodTimeLeft,
+			SuddenDeath:    periodsLeft <= 1,
+			TimedOut:       mainTime < 0 && periodsLeft < 0,
+		}
+
 	}
-	if t.ThinkingTime > 0 {
-		return fmt.Sprintf("%s + %s (%d)", prettyTime(remaining), prettyTime(t.PeriodTime), t.Periods)
+	return nil
+}
+
+func (c ComputedClock) String() string {
+	if c.TimedOut {
+		return "Timeout"
 	}
-	if !onTurn {
-		remaining = t.PeriodTime // Reset when not on turn (and not in SD)
+
+	switch c.System {
+	case "absolute", "fisher":
+		return fmt.Sprintf("%s%s", prettyTime(c.MainTime), cond(c.SuddenDeath, " (SD)", ""))
+	case "byoyomi":
+		if c.SuddenDeath {
+			return fmt.Sprintf("%s (SD)", prettyTime(c.PeriodTimeLeft))
+		}
+		if c.MainTime > 0 {
+			return fmt.Sprintf("%s + %s (%d)", prettyTime(c.MainTime), prettyTime(c.PeriodTimeLeft), c.PeriodsLeft)
+		}
+		return fmt.Sprintf("%s (%d)", prettyTime(c.PeriodTimeLeft), c.PeriodsLeft)
 	}
-	return fmt.Sprintf("%s (%d)", prettyTime(remaining), t.Periods)
+	return "??:??"
 }
 
 func prettyTime(seconds float64) string {
@@ -367,10 +436,6 @@ type PlayerTime struct {
 	PeriodTimeLeft float64 `json:"period_time_left"`
 	Periods        int
 	ThinkingTime   float64 `json:"thinking_time"`
-}
-
-func (t *PlayerTime) SuddenDeath() bool {
-	return t.Periods <= 1
 }
 
 // UnmarshalJSON is a customized JSON decoder for properly handling the
