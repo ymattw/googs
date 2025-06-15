@@ -164,3 +164,8 @@ func (c *Client) OnNetPong(fn func(drift, latency int64)) error {
 	}
 	return c.socket.On("net/pong", callback)
 }
+
+func (c *Client) OnActiveGame(fn func(*GameListEntry)) error {
+	callback := func(_ any, g *GameListEntry) { fn(g) }
+	return c.socket.On("active_game", callback)
+}

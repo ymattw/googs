@@ -259,8 +259,9 @@ type Player struct {
 	Professional bool
 	Rank         float32
 
-	// Accepted removals, see RemovedStones for explanation.
-	AcceptedStones string `json:"accepted_stones"`
+	// Accepted removals, see RemovedStones for explanation. Make it
+	// a pointer and nil means "not accepted yet".
+	AcceptedStones *string `json:"accepted_stones"`
 }
 
 func (p Player) String() string {
