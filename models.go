@@ -334,7 +334,7 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 	// TODO: Support "simple" and "canadian"
 	switch tc.System {
 
-	case "absolute", "fisher":
+	case "absolute", "fischer":
 		mainTime = cond(onTurn, math.Max(0, t.ThinkingTime-elapsed), t.ThinkingTime)
 		return &ComputedClock{
 			System:      tc.System,
@@ -389,7 +389,7 @@ func (c ComputedClock) String() string {
 	}
 
 	switch c.System {
-	case "absolute", "fisher":
+	case "absolute", "fischer":
 		return fmt.Sprintf("%s%s", prettyTime(c.MainTime), cond(c.SuddenDeath, " (SD)", ""))
 	case "byoyomi":
 		if c.SuddenDeath {

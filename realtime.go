@@ -142,3 +142,25 @@ func (c *Client) GameListQuery(list GameListType, from, limit int, where *GameLi
 	}
 	return &resp, nil
 }
+
+func (c *Client) NetPing(drift, latency int64) error {
+	return c.socket.Emit("net/ping", map[string]any{
+		"client":  time.Now().UnixMilli(),
+		"drift":   drift,
+		"latency": latency,
+	})
+}
+
+func (c *Client) OnNetPong(fn func(drift, latency int64)) error {
+	type pong struct {
+		Client Timestamp
+		Server Timestamp
+	}
+	callback := func(_ any, p *pong) {
+		now := time.Now()
+		latency := now.UnixMilli() - p.Client.UnixMilli()
+		drift := now.UnixMilli() - latency/2 - p.Server.UnixMilli()
+		fn(drift, latency)
+	}
+	return c.socket.On("net/pong", callback)
+}
