@@ -49,7 +49,7 @@ func (c *Client) GameConnect(gameID int64) error {
 	return c.socket.Emit("game/connect", map[string]any{
 		"game_id":   gameID,
 		"player_id": c.UserID,
-		"chat":      false,
+		"chat":      true,
 	})
 }
 
@@ -168,4 +168,25 @@ func (c *Client) OnNetPong(fn func(drift, latency int64)) error {
 func (c *Client) OnActiveGame(fn func(*GameListEntry)) error {
 	callback := func(_ any, g *GameListEntry) { fn(g) }
 	return c.socket.On("active_game", callback)
+}
+
+func (c *Client) ChatJoin(gameID int64) error {
+	return c.socket.Emit("chat/join", map[string]any{
+		"channel": fmt.Sprintf("game-%d", gameID),
+	})
+}
+
+// GameChat sends a messaage to the game, this is not hidden or personal.
+func (c *Client) GameChat(gameID int64, moveNumber int, message string) error {
+	return c.socket.Emit("game/chat", map[string]any{
+		"game_id":     gameID,
+		"type":        "main",
+		"move_number": moveNumber,
+		"body":        message,
+	})
+}
+
+func (c *Client) OnGameChat(gameID int64, fn func(*GameChat)) error {
+	callback := func(_ any, chat *GameChat) { fn(chat) }
+	return c.socket.On(fmt.Sprintf("game/%d/chat", gameID), callback)
 }

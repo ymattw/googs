@@ -753,3 +753,20 @@ type GameListResponse struct {
 	Limit   int
 	Results []GameListEntry
 }
+
+type GameChat struct {
+	Channel string
+	Line    GameChatLine
+}
+
+type GameChatLine struct {
+	ChatID       string `json:"chat_id"`
+	Body         string
+	Date         Timestamp
+	MoveNumber   int `json:"move_number"`
+	Channel      string
+	PlayerID     int64 `json:"player_id"`
+	Username     string
+	Professional int // XXX: server response is a number 0/1
+	Ranking      float32
+}
