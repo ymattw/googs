@@ -111,7 +111,8 @@ type Game struct {
 	Komi                          float32
 	Latencies                     map[string]int64 // playerID => latencies
 	Moves                         []Move
-	OpponentPlaysFirstAfterResume bool `json:"opponent_plays_first_after_resume"`
+	OpponentPlaysFirstAfterResume bool   `json:"opponent_plays_first_after_resume"`
+	Outcome                       string // Only when Phase is "finished"
 	Phase                         GamePhase
 	PlayerPool                    map[string]Player `json:"player_pool"` // Keys are player IDs (string)
 	Players                       Players
@@ -212,12 +213,12 @@ func (g *Game) WhitePlayerTitle() string {
 	return "(W) " + g.Players.White.String()
 }
 
-func (g *Game) Result(state *GameState) string {
+func (g *Game) Result() string {
 	if g.Phase != FinishedPhase {
 		return ""
 	}
 	winner := cond(g.WinnerID == g.BlackPlayerID, g.BlackPlayerTitle(), g.WhitePlayerTitle())
-	return fmt.Sprintf("%s won by %s", winner, state.Outcome)
+	return fmt.Sprintf("%s won by %s", winner, g.Outcome)
 }
 
 func (g *Game) Status(state *GameState, myUserID int64) string {
@@ -228,7 +229,7 @@ func (g *Game) Status(state *GameState, myUserID int64) string {
 		return fmt.Sprintf("Game ready, %s to start", g.BlackPlayerTitle())
 	}
 	if state.Phase == FinishedPhase {
-		return "Game has finished, " + g.Result(state)
+		return "Game has finished, " + g.Result()
 	}
 
 	var whoPlayed, turn string

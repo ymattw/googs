@@ -73,7 +73,7 @@ func connect(args ...string) {
 			log.Printf("%s", game.Status(gameState, client.UserID))
 		}
 		if gameState.Phase == "finished" {
-			log.Printf("%s", game.Result(gameState))
+			log.Printf("%s", game.Result())
 			break
 		}
 
