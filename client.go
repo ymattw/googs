@@ -92,35 +92,37 @@ func (c *Client) Save(secretFile string) error {
 
 // Load stores Client credentials from a JSON file previously written via
 // Save(),  also establishes websocket connection to OGS so the Client is ready
-// to use right after.
+// to use right after. Caller should always check error first, because an
+// incomplete client may be returned for caller to access available information
+// (e.g. to prefill Client ID in a login form).
 func LoadClient(secretFile string) (*Client, error) {
 	data, err := os.ReadFile(secretFile)
 	if err != nil {
-		return nil, err
+		return &Client{}, err
 	}
 	var c Client
 	if err := json.Unmarshal(data, &c); err != nil {
-		return nil, err
+		return &c, err
 	}
 
 	// OGS access token is valid for 30 days, refresh if it's expiring in
 	// 7 days.
 	refreshed, err := c.MaybeRefresh(time.Hour * 24 * 7)
 	if err != nil {
-		return nil, err
+		return &c, err
 	}
 	if refreshed {
 		if err := c.Save(secretFile); err != nil {
-			return nil, err
+			return &c, err
 		}
 	}
 
 	if err := c.Identify(); err != nil {
-		return nil, err
+		return &c, err
 	}
 
 	if err := c.connect(); err != nil {
-		return nil, err
+		return &c, err
 	}
 	return &c, nil
 }
@@ -179,7 +181,6 @@ func (c *Client) authenticate(data url.Values) error {
 func (c *Client) MaybeRefresh(deadline time.Duration) (bool, error) {
 	expiring := time.Now().Add(deadline).After(c.ExpiresAt)
 	if expiring || c.Identify() != nil {
-		// TODO: Only fresh on 401 error
 		err := c.refreshToken()
 		return err == nil, err
 	}
