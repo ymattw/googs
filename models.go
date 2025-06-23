@@ -603,6 +603,14 @@ type RemovedStonesAccepted struct {
 	WinnerID int64 `json:"winner"`
 }
 
+func (r *RemovedStonesAccepted) Result() string {
+	if r.Phase != FinishedPhase {
+		return ""
+	}
+	winner := cond(r.WinnerID == r.Players.Black.ID, "(B) "+r.Players.Black.String(), "(W) "+r.Players.White.String())
+	return fmt.Sprintf("%s won by %s", winner, r.Outcome)
+}
+
 // OriginCoordinate is zero base coordinate.
 type OriginCoordinate struct {
 	X int
