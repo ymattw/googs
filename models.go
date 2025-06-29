@@ -300,7 +300,7 @@ type Clock struct {
 }
 
 type ComputedClock struct {
-	System         string
+	System         System
 	MainTime       float64
 	PeriodsLeft    int
 	PeriodTimeLeft float64
@@ -336,7 +336,7 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 	// TODO: Support "simple" and "canadian"
 	switch tc.System {
 
-	case "absolute", "fischer":
+	case AbsoluteSystem, FischerSystem:
 		mainTime = cond(onTurn, math.Max(0, t.ThinkingTime-elapsed), t.ThinkingTime)
 		return &ComputedClock{
 			System:      tc.System,
@@ -345,7 +345,7 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			TimedOut:    mainTime < 0,
 		}
 
-	case "byoyomi":
+	case ByoyomiSystem:
 		if onTurn {
 			var overTime float64
 			if t.ThinkingTime > 0 {
@@ -391,9 +391,9 @@ func (c ComputedClock) String() string {
 	}
 
 	switch c.System {
-	case "absolute", "fischer":
+	case AbsoluteSystem, FischerSystem:
 		return fmt.Sprintf("%s%s", prettyTime(c.MainTime), cond(c.SuddenDeath, " (SD)", ""))
-	case "byoyomi":
+	case ByoyomiSystem:
 		if c.SuddenDeath {
 			return fmt.Sprintf("%s (SD)", prettyTime(c.PeriodTimeLeft))
 		}
@@ -461,6 +461,14 @@ type Players struct {
 	White Player
 }
 
+type System string
+
+const (
+	AbsoluteSystem System = "absolute"
+	FischerSystem  System = "fischer"
+	ByoyomiSystem  System = "byoyomi"
+)
+
 type TimeControl struct {
 	MainTime        float64 `json:"main_time"`
 	PauseOnWeekends bool    `json:"pause_on_weekends"`
@@ -469,7 +477,7 @@ type TimeControl struct {
 	PeriodsMax      int `json:"periods_max"`
 	PeriodsMin      int `json:"periods_min"`
 	Speed           string
-	System          string
+	System          System
 	TimeControl     string `json:"time_control"`
 }
 
