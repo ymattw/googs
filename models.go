@@ -313,17 +313,17 @@ type ComputedClock struct {
 // ComputeClock returns a computed clock struct of the given players.
 func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock {
 	var t PlayerTime
-	var onTurn bool
+	var isTurn bool
 	var mainTime, periodTimeLeft float64
 	var periodsLeft int
 
 	switch player {
 	case PlayerBlack:
 		t = c.BlackTime
-		onTurn = c.CurrentPlayerID == c.BlackPlayerID
+		isTurn = c.CurrentPlayerID == c.BlackPlayerID
 	case PlayerWhite:
 		t = c.WhiteTime
-		onTurn = c.CurrentPlayerID == c.WhitePlayerID
+		isTurn = c.CurrentPlayerID == c.WhitePlayerID
 	default:
 		return nil
 	}
@@ -331,13 +331,13 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 	// When called from Game.Clock the .Now field is not available, assume
 	// the clock data was snapshoted at LastMove time.
 	snapshotTime := cond(c.Now != Timestamp{} /*zero*/, c.Now.Time, c.LastMove.Time)
-	elapsed := cond(onTurn, time.Since(snapshotTime).Seconds(), 0) // Pause clock if not on turn
+	elapsed := cond(isTurn, time.Since(snapshotTime).Seconds(), 0) // Pause clock if not on turn
 
 	// TODO: Support "simple" and "canadian"
 	switch tc.System {
 
 	case ClockAbsolute, ClockFischer:
-		mainTime = cond(onTurn, math.Max(0, t.ThinkingTime-elapsed), t.ThinkingTime)
+		mainTime = cond(isTurn, math.Max(0, t.ThinkingTime-elapsed), t.ThinkingTime)
 		return &ComputedClock{
 			System:      tc.System,
 			MainTime:    mainTime,
@@ -346,7 +346,7 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 		}
 
 	case ClockByoyomi:
-		if onTurn {
+		if isTurn {
 			var overTime float64
 			if t.ThinkingTime > 0 {
 				mainTime = t.ThinkingTime - elapsed
@@ -430,14 +430,14 @@ func prettyTime(seconds float64) string {
 }
 
 type PlayerTime struct {
-	// Only for Rengo games
-	Value Timestamp
-
-	// Only for non Rengo games
+	// Non Rengo games
 	PeriodTime     float64 `json:"period_time"`
 	PeriodTimeLeft float64 `json:"period_time_left"`
 	Periods        int
 	ThinkingTime   float64 `json:"thinking_time"`
+
+	// Only for Rengo games
+	Value Timestamp
 }
 
 // UnmarshalJSON is a customized JSON decoder for properly handling the
@@ -465,24 +465,43 @@ type ClockSystem string
 
 const (
 	ClockAbsolute ClockSystem = "absolute"
-	ClockFischer  ClockSystem = "fischer"
 	ClockByoyomi  ClockSystem = "byoyomi"
+	ClockFischer  ClockSystem = "fischer"
 )
 
 type TimeControl struct {
-	MainTime        float64 `json:"main_time"`
-	PauseOnWeekends bool    `json:"pause_on_weekends"`
-	PeriodTime      float64 `json:"period_time"`
-	Periods         int
-	PeriodsMax      int `json:"periods_max"`
-	PeriodsMin      int `json:"periods_min"`
-	Speed           string
 	System          ClockSystem
-	TimeControl     string `json:"time_control"`
+	Speed           string
+	PauseOnWeekends bool `json:"pause_on_weekends"`
+
+	// Absolute
+	TotalTime float64 `json:"total_time"`
+
+	// Byoyomi
+	MainTime   float64 `json:"main_time"`
+	PeriodTime float64 `json:"period_time"`
+	Periods    int
+	PeriodsMax int `json:"periods_max"`
+	PeriodsMin int `json:"periods_min"`
+
+	// Fischer
+	InitialTime   float64 `json:"initial_time"`
+	TimeIncrement float64 `json:"time_increment"`
+	MaxTime       float64 `json:"max_time"`
 }
 
 func (t TimeControl) String() string {
-	return fmt.Sprintf("%s %s+%sx%d", t.System, prettyTime(t.MainTime), prettyTime(t.PeriodTime), t.Periods)
+	switch t.System {
+	case ClockAbsolute:
+		return fmt.Sprintf("%s %s", t.System, prettyTime(t.TotalTime))
+	case ClockByoyomi:
+		return fmt.Sprintf("%s %s+%sx%d", t.System, prettyTime(t.MainTime), prettyTime(t.PeriodTime), t.Periods)
+	case ClockFischer:
+		return fmt.Sprintf("%s %s+%s/ max %s", t.System, prettyTime(t.InitialTime), prettyTime(t.TimeIncrement), prettyTime(t.MaxTime))
+	case ClockSimple:
+		return fmt.Sprintf("%s %s/move", t.System, prettyTime(t.PerMove))
+	}
+	return string(t.System)
 }
 
 // Overview contains the overview as what users see after logged into OGS.

@@ -14,8 +14,8 @@ The package allows users to authenticate, connect to games, receive game
 
 First [request an OGS application](https://online-go.com/oauth2/applications/),
 with `Authorization grant type` set to *Resource owner password-based*, keep
-note of the client ID and client secret. Note using empty client secret is fine
-if the `Client type` is *Public*.
+note of the client ID and **unhashed** client secret. Note empty client secret
+must be used if the `Client type` is *Public*.
 
 ### Login once and persist credentials
 
