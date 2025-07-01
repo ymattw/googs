@@ -331,9 +331,9 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 	// When called from Game.Clock the .Now field is not available, assume
 	// the clock data was snapshoted at LastMove time.
 	snapshotTime := cond(c.Now != Timestamp{} /*zero*/, c.Now.Time, c.LastMove.Time)
-	elapsed := cond(isTurn, time.Since(snapshotTime).Seconds(), 0) // Pause clock if not on turn
+	elapsed := cond(isTurn, time.Since(snapshotTime).Seconds(), 0) // Pause clock if not in turn
 
-	// TODO: Support "simple" and "canadian"
+	// TODO: Support "canadian"
 	switch tc.System {
 
 	case ClockAbsolute, ClockFischer:
@@ -381,6 +381,14 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			TimedOut:       mainTime < 0 && periodsLeft < 0,
 		}
 
+	case ClockSimple:
+		mainTime = cond(isTurn, math.Max(0, tc.PerMove-elapsed), tc.PerMove)
+		return &ComputedClock{
+			System:      tc.System,
+			MainTime:    mainTime,
+			SuddenDeath: mainTime < 10,
+			TimedOut:    mainTime < 0,
+		}
 	}
 	return nil
 }
@@ -391,7 +399,7 @@ func (c ComputedClock) String() string {
 	}
 
 	switch c.System {
-	case ClockAbsolute, ClockFischer:
+	case ClockAbsolute, ClockFischer, ClockSimple:
 		return fmt.Sprintf("%s%s", prettyTime(c.MainTime), cond(c.SuddenDeath, " (SD)", ""))
 	case ClockByoyomi:
 		if c.SuddenDeath {
@@ -467,6 +475,7 @@ const (
 	ClockAbsolute ClockSystem = "absolute"
 	ClockByoyomi  ClockSystem = "byoyomi"
 	ClockFischer  ClockSystem = "fischer"
+	ClockSimple   ClockSystem = "simple"
 )
 
 type TimeControl struct {
@@ -488,6 +497,9 @@ type TimeControl struct {
 	InitialTime   float64 `json:"initial_time"`
 	TimeIncrement float64 `json:"time_increment"`
 	MaxTime       float64 `json:"max_time"`
+
+	// Simple
+	PerMove float64 `json:"per_move"`
 }
 
 func (t TimeControl) String() string {
