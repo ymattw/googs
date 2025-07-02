@@ -303,9 +303,9 @@ type ComputedClock struct {
 	System         ClockSystem
 	MainTime       float64
 	PeriodsLeft    int
-	PeriodTimeLeft float64
-	MovesLeft      int     // Only for canadian time control
-	BlockTimeLeft  float64 // Only for canadian time control
+	PeriodTimeLeft float64 // Byoyomi only
+	MovesLeft      int     // Canadian only
+	BlockTimeLeft  float64 // Canadian only
 	SuddenDeath    bool
 	TimedOut       bool
 }
@@ -314,8 +314,6 @@ type ComputedClock struct {
 func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock {
 	var t PlayerTime
 	var isTurn bool
-	var mainTime, periodTimeLeft float64
-	var periodsLeft int
 
 	switch player {
 	case PlayerBlack:
@@ -333,11 +331,10 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 	snapshotTime := cond(c.Now != Timestamp{} /*zero*/, c.Now.Time, c.LastMove.Time)
 	elapsed := cond(isTurn, time.Since(snapshotTime).Seconds(), 0) // Pause clock if not in turn
 
-	// TODO: Support "canadian"
 	switch tc.System {
 
 	case ClockAbsolute, ClockFischer:
-		mainTime = cond(isTurn, math.Max(0, t.ThinkingTime-elapsed), t.ThinkingTime)
+		mainTime := cond(isTurn, math.Max(0, t.ThinkingTime-elapsed), t.ThinkingTime)
 		return &ComputedClock{
 			System:      tc.System,
 			MainTime:    mainTime,
@@ -346,8 +343,9 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 		}
 
 	case ClockByoyomi:
+		var periodsLeft int
+		var mainTime, periodTimeLeft, overTime float64
 		if isTurn {
-			var overTime float64
 			if t.ThinkingTime > 0 {
 				mainTime = t.ThinkingTime - elapsed
 				if mainTime < 0 {
@@ -381,8 +379,42 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			TimedOut:       mainTime < 0 && periodsLeft < 0,
 		}
 
+	case ClockCanadian:
+		var movesLeft int
+		var mainTime, blockTimeLeft, overTime float64
+		if isTurn {
+			if t.ThinkingTime > 0 {
+				mainTime = t.ThinkingTime - elapsed
+				if mainTime < 0 {
+					overTime = -mainTime
+					mainTime = 0
+				}
+			} else {
+				mainTime = 0
+				overTime = elapsed
+			}
+			movesLeft = t.MovesLeft
+			blockTimeLeft = t.BlockTime
+			if overTime > 0 {
+				blockTimeLeft -= overTime
+				blockTimeLeft = cond(blockTimeLeft > 0, blockTimeLeft, 0)
+			}
+		} else {
+			mainTime = t.ThinkingTime
+			movesLeft = t.MovesLeft
+			blockTimeLeft = t.BlockTime
+		}
+		return &ComputedClock{
+			System:        tc.System,
+			MainTime:      mainTime,
+			MovesLeft:     movesLeft,
+			BlockTimeLeft: blockTimeLeft,
+			SuddenDeath:   mainTime < 1e-7 && (blockTimeLeft < 10 || movesLeft < 2),
+			TimedOut:      mainTime < 0 && blockTimeLeft < 0,
+		}
+
 	case ClockSimple:
-		mainTime = cond(isTurn, math.Max(0, tc.PerMove-elapsed), tc.PerMove)
+		mainTime := cond(isTurn, math.Max(0, tc.PerMove-elapsed), tc.PerMove)
 		return &ComputedClock{
 			System:      tc.System,
 			MainTime:    mainTime,
@@ -406,9 +438,17 @@ func (c ComputedClock) String() string {
 			return fmt.Sprintf("%s (SD)", prettyTime(c.PeriodTimeLeft))
 		}
 		if c.MainTime > 0 {
-			return fmt.Sprintf("%s + %s (%d)", prettyTime(c.MainTime), prettyTime(c.PeriodTimeLeft), c.PeriodsLeft)
+			return fmt.Sprintf("%s +%s (%d)", prettyTime(c.MainTime), prettyTime(c.PeriodTimeLeft), c.PeriodsLeft)
 		}
 		return fmt.Sprintf("%s (%d)", prettyTime(c.PeriodTimeLeft), c.PeriodsLeft)
+	case ClockCanadian:
+		if c.SuddenDeath {
+			return fmt.Sprintf("%s/%d (SD)", prettyTime(c.BlockTimeLeft), c.MovesLeft)
+		}
+		if c.MainTime > 0 {
+			return fmt.Sprintf("%s +%s/%d", prettyTime(c.MainTime), prettyTime(c.BlockTimeLeft), c.MovesLeft)
+		}
+		return fmt.Sprintf("%s/%d", prettyTime(c.BlockTimeLeft), c.MovesLeft)
 	}
 	return "??:??"
 }
@@ -429,7 +469,7 @@ func prettyTime(seconds float64) string {
 		return fmt.Sprintf("%.0fh", days*24)
 	}
 	if hours > 0 {
-		return fmt.Sprintf("%.0fh%.0fm", hours, minutes)
+		return fmt.Sprintf("%.0fh%s", hours, cond(minutes > 0, fmt.Sprintf("%.0fm", minutes), ""))
 	}
 	if minutes > 0 {
 		return fmt.Sprintf("%.0f:%02.0f", minutes, seconds)
@@ -440,9 +480,11 @@ func prettyTime(seconds float64) string {
 type PlayerTime struct {
 	// Non Rengo games
 	PeriodTime     float64 `json:"period_time"`
-	PeriodTimeLeft float64 `json:"period_time_left"`
+	PeriodTimeLeft float64 `json:"period_time_left"` // Byoyomi only
 	Periods        int
 	ThinkingTime   float64 `json:"thinking_time"`
+	MovesLeft      int     `json:"moves_left"` // Canadian only
+	BlockTime      float64 `json:"block_time"` // Canadian only
 
 	// Only for Rengo games
 	Value Timestamp
@@ -474,6 +516,7 @@ type ClockSystem string
 const (
 	ClockAbsolute ClockSystem = "absolute"
 	ClockByoyomi  ClockSystem = "byoyomi"
+	ClockCanadian ClockSystem = "canadian"
 	ClockFischer  ClockSystem = "fischer"
 	ClockSimple   ClockSystem = "simple"
 )
@@ -487,11 +530,14 @@ type TimeControl struct {
 	TotalTime float64 `json:"total_time"`
 
 	// Byoyomi
-	MainTime   float64 `json:"main_time"`
-	PeriodTime float64 `json:"period_time"`
+	MainTime   float64 `json:"main_time"`   // Also for Canadian
+	PeriodTime float64 `json:"period_time"` // Also for Canadian
 	Periods    int
 	PeriodsMax int `json:"periods_max"`
 	PeriodsMin int `json:"periods_min"`
+
+	// Canadian
+	StonesPerPeriod int `json:"stones_per_period"`
 
 	// Fischer
 	InitialTime   float64 `json:"initial_time"`
@@ -508,6 +554,8 @@ func (t TimeControl) String() string {
 		return fmt.Sprintf("%s %s", t.System, prettyTime(t.TotalTime))
 	case ClockByoyomi:
 		return fmt.Sprintf("%s %s+%sx%d", t.System, prettyTime(t.MainTime), prettyTime(t.PeriodTime), t.Periods)
+	case ClockCanadian:
+		return fmt.Sprintf("%s %s+%s/%d moves", t.System, prettyTime(t.MainTime), prettyTime(t.PeriodTime), t.StonesPerPeriod)
 	case ClockFischer:
 		return fmt.Sprintf("%s %s+%s/ max %s", t.System, prettyTime(t.InitialTime), prettyTime(t.TimeIncrement), prettyTime(t.MaxTime))
 	case ClockSimple:
