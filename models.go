@@ -296,7 +296,8 @@ type Clock struct {
 	Title           string
 	WhitePlayerID   int64      `json:"white_player_id"`
 	WhiteTime       PlayerTime `json:"white_time"`
-	Now             Timestamp  // Only for OnClock
+	StartMode       bool
+	Now             Timestamp // Only for OnClock
 }
 
 type ComputedClock struct {
@@ -326,10 +327,8 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 		return nil
 	}
 
-	// When called from Game.Clock the .Now field is not available, assume
-	// the clock data was snapshoted at LastMove time.
-	snapshotTime := cond(c.Now != Timestamp{} /*zero*/, c.Now.Time, c.LastMove.Time)
-	elapsed := cond(isTurn, time.Since(snapshotTime).Seconds(), 0) // Pause clock if not in turn
+	// Pause clock if not turn or game has not started yet
+	elapsed := cond(isTurn && !c.StartMode, time.Since(c.LastMove.Time).Seconds(), 0)
 
 	switch tc.System {
 
@@ -339,16 +338,16 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			System:      tc.System,
 			MainTime:    mainTime,
 			SuddenDeath: mainTime < 10,
-			TimedOut:    mainTime < 0,
+			TimedOut:    mainTime < 1e-7,
 		}
 
 	case ClockByoyomi:
 		var periodsLeft int
 		var mainTime, periodTimeLeft, overTime float64
 		if isTurn {
-			if t.ThinkingTime > 0 {
+			if t.ThinkingTime > 1e-7 {
 				mainTime = t.ThinkingTime - elapsed
-				if mainTime < 0 {
+				if mainTime < 1e-7 {
 					overTime = -mainTime
 					mainTime = 0
 				}
@@ -358,12 +357,12 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			}
 			periodsLeft = t.Periods
 			periodTimeLeft = t.PeriodTime
-			if overTime > 0 {
+			if overTime > 1e-7 {
 				periodsUsed := math.Floor(overTime / tc.PeriodTime)
 				periodsLeft -= int(periodsUsed)
 				periodsLeft = cond(periodsLeft > 0, periodsLeft, 0)
 				periodTimeLeft = tc.PeriodTime - (overTime - periodsUsed*tc.PeriodTime)
-				periodTimeLeft = cond(periodTimeLeft > 0, periodTimeLeft, 0)
+				periodTimeLeft = cond(periodTimeLeft > 1e-7, periodTimeLeft, 0)
 			}
 		} else {
 			periodsLeft = t.Periods
@@ -376,16 +375,16 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			PeriodsLeft:    periodsLeft,
 			PeriodTimeLeft: periodTimeLeft,
 			SuddenDeath:    periodsLeft <= 1,
-			TimedOut:       mainTime < 0 && periodsLeft < 0,
+			TimedOut:       mainTime < 1e-7 && periodsLeft < 0,
 		}
 
 	case ClockCanadian:
 		var movesLeft int
 		var mainTime, blockTimeLeft, overTime float64
 		if isTurn {
-			if t.ThinkingTime > 0 {
+			if t.ThinkingTime > 1e-7 {
 				mainTime = t.ThinkingTime - elapsed
-				if mainTime < 0 {
+				if mainTime < 1e-7 {
 					overTime = -mainTime
 					mainTime = 0
 				}
@@ -395,9 +394,9 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			}
 			movesLeft = t.MovesLeft
 			blockTimeLeft = t.BlockTime
-			if overTime > 0 {
+			if overTime > 1e-7 {
 				blockTimeLeft -= overTime
-				blockTimeLeft = cond(blockTimeLeft > 0, blockTimeLeft, 0)
+				blockTimeLeft = cond(blockTimeLeft > 1e-7, blockTimeLeft, 0)
 			}
 		} else {
 			mainTime = t.ThinkingTime
@@ -410,7 +409,7 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			MovesLeft:     movesLeft,
 			BlockTimeLeft: blockTimeLeft,
 			SuddenDeath:   mainTime < 1e-7 && (blockTimeLeft < 10 || movesLeft < 2),
-			TimedOut:      mainTime < 0 && blockTimeLeft < 0,
+			TimedOut:      mainTime < 1e-7 && blockTimeLeft < 1e-7,
 		}
 
 	case ClockSimple:
@@ -419,7 +418,7 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			System:      tc.System,
 			MainTime:    mainTime,
 			SuddenDeath: mainTime < 10,
-			TimedOut:    mainTime < 0,
+			TimedOut:    mainTime < 1e-7,
 		}
 	}
 	return nil
