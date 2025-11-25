@@ -250,6 +250,9 @@ func (g *Game) Status(state *GameState, myUserID int64) string {
 }
 
 func (g *Game) WhoseTurn(state *GameState) PlayerColor {
+	if state == nil {
+		return PlayerUnknown
+	}
 	return cond(state.PlayerToMove == g.BlackPlayer().ID, PlayerBlack, PlayerWhite)
 }
 
@@ -316,6 +319,11 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 	var t PlayerTime
 	var isTurn bool
 
+	unknownClock := ComputedClock{System: ClockUnknown}
+	if c == nil {
+		return &unknownClock
+	}
+
 	switch player {
 	case PlayerBlack:
 		t = c.BlackTime
@@ -324,7 +332,7 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 		t = c.WhiteTime
 		isTurn = c.CurrentPlayerID == c.WhitePlayerID
 	default:
-		return nil
+		return &unknownClock
 	}
 
 	// Pause clock if not turn or game has not started yet
@@ -421,7 +429,7 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			TimedOut:    mainTime < 1e-7,
 		}
 	}
-	return nil
+	return &unknownClock
 }
 
 func (c ComputedClock) String() string {
@@ -513,6 +521,7 @@ type Players struct {
 type ClockSystem string
 
 const (
+	ClockUnknown  ClockSystem = "unknown"
 	ClockAbsolute ClockSystem = "absolute"
 	ClockByoyomi  ClockSystem = "byoyomi"
 	ClockCanadian ClockSystem = "canadian"
