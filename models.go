@@ -428,6 +428,11 @@ func (c *Clock) ComputeClock(tc *TimeControl, player PlayerColor) *ComputedClock
 			SuddenDeath: mainTime < 10,
 			TimedOut:    mainTime < 1e-7,
 		}
+
+	case ClockNone:
+		return &ComputedClock{
+			System: tc.System,
+		}
 	}
 	return &unknownClock
 }
@@ -456,6 +461,8 @@ func (c ComputedClock) String() string {
 			return fmt.Sprintf("%s +%s/%d", prettyTime(c.MainTime), prettyTime(c.BlockTimeLeft), c.MovesLeft)
 		}
 		return fmt.Sprintf("%s/%d", prettyTime(c.BlockTimeLeft), c.MovesLeft)
+	case ClockNone:
+		return "--:--"
 	}
 	return "??:??"
 }
@@ -527,6 +534,7 @@ const (
 	ClockCanadian ClockSystem = "canadian"
 	ClockFischer  ClockSystem = "fischer"
 	ClockSimple   ClockSystem = "simple"
+	ClockNone     ClockSystem = "none"
 )
 
 type TimeControl struct {
