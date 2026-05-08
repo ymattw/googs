@@ -54,6 +54,3 @@ See example usages in `demo/` which is a **working** minimal OGS client program
 that you can use to watch and play games on OGS.
 
 <img src="https://github.com/ymattw/googs/blob/main/demo/demo.png?raw=true" width="500" />
-
-And check out [ymattw/tenuki](https://github.com/ymattw/tenuki) for a full OGS
-client application!
